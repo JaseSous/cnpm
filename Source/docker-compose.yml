@@ -1,0 +1,178 @@
+services:
+  # ===============================================================
+  # CƠ SỞ HẠ TẦNG (POSTGRESQL, REDIS, RABBITMQ)
+  # ===============================================================
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: gps-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${AUTH_DB_NAME:-gps_auth_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-postgres.sql:/docker-entrypoint-initdb.d/init-postgres.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gps-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: gps-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gps-network
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: gps-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-guest}
+    ports:
+      - "5672:5672"     # AMQP protocol
+      - "15672:15672"   # Management Web UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gps-network
+
+  # ===============================================================
+  # CÁC SERVICE BACKEND (FASTAPI)
+  # ===============================================================
+
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    container_name: gps-auth-service
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - gps-network
+
+  poi-service:
+    build:
+      context: ./services/poi-service
+      dockerfile: Dockerfile
+    container_name: gps-poi-service
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - gps-network
+
+  chatbot-service:
+    build:
+      context: ./services/chatbot-service
+      dockerfile: Dockerfile
+    container_name: gps-chatbot-service
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8003:8003"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - gps-network
+
+  data-pipeline-service:
+    build:
+      context: ./services/data-pipeline-service
+      dockerfile: Dockerfile
+    container_name: gps-data-pipeline-service
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8004:8004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - gps-network
+
+  # ===============================================================
+  # API GATEWAY & FRONTEND
+  # ===============================================================
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: gps-api-gateway
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - auth-service
+      - poi-service
+      - chatbot-service
+      - data-pipeline-service
+    networks:
+      - gps-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: gps-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - gps-network
+
+# ===============================================================
+# VOLUMES & NETWORKS
+# ===============================================================
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+
+networks:
+  gps-network:
+    driver: bridge

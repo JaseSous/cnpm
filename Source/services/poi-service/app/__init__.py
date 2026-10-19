@@ -1,0 +1,1 @@
+# poi-service app package

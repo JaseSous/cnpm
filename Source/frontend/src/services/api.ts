@@ -1,0 +1,142 @@
+// API Client giao tiếp với API Gateway qua đường dẫn /api
+import { POI, TourRoute } from '../types';
+
+const API_BASE = '/api';
+
+export function getStoredToken(): string | null {
+  return localStorage.getItem('access_token');
+}
+
+export function setStoredToken(token: string) {
+  localStorage.setItem('access_token', token);
+}
+
+export function clearStoredToken() {
+  localStorage.removeItem('access_token');
+}
+
+async function request(endpoint: string, options: RequestInit = {}) {
+  const token = getStoredToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string> || {}),
+  };
+
+  if (token && !endpoint.startsWith('/auth/')) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}${endpoint}`, {
+    ...options,
+    headers,
+  });
+
+  if (res.status === 401) {
+    // A1: Token hết hạn hoặc sai -> xóa token và ném lỗi để quay về màn hình xác thực
+    clearStoredToken();
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || 'Mã xác thực không hợp lệ hoặc đã hết hạn');
+  }
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || errorData.message || `Lỗi HTTP: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+// --- UC01: Xác thực ---
+
+export async function verifyCode(code: string) {
+  return request('/auth/verify', {
+    method: 'POST',
+    body: JSON.stringify({ code })
+  });
+}
+
+export async function createPayooSession(amount: number = 50000) {
+  return request('/auth/payoo/create-session', {
+    method: 'POST',
+    body: JSON.stringify({ amount, payment_method: 'online' })
+  });
+}
+
+export async function triggerPayooWebhook(authCode: string, status: 'Success' | 'Pending' | 'Failed') {
+  return request('/auth/payoo/webhook-mock', {
+    method: 'POST',
+    body: JSON.stringify({ auth_code: authCode, status })
+  });
+}
+
+// --- UC02: Tải dữ liệu POIs (1 lần) ---
+
+export async function fetchAllPOIs(): Promise<{ pois: POI[]; tour_routes: TourRoute[]; message?: string }> {
+  return request('/pois/all');
+}
+
+// --- UC03: Chatbot RAG ---
+
+export async function askChatbot(question: string) {
+  return request('/chat/ask', {
+    method: 'POST',
+    body: JSON.stringify({ question })
+  });
+}
+
+// --- UC04: Admin Endpoints ---
+
+export async function adminLogin(username: string, password: string) {
+  return request('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username, password })
+  });
+}
+
+export async function adminCreateCashCode() {
+  return request('/admin/cash-code', {
+    method: 'POST'
+  });
+}
+
+export async function adminCreatePOI(poiData: {
+  name: string;
+  latitude: number;
+  longitude: number;
+  trigger_radius: number;
+  thumbnail_url?: string;
+  original_description: string;
+}) {
+  return request('/admin/pois', {
+    method: 'POST',
+    body: JSON.stringify(poiData)
+  });
+}
+
+export async function adminUpdatePOI(poiId: string, poiData: {
+  name?: string;
+  latitude?: number;
+  longitude?: number;
+  trigger_radius?: number;
+  thumbnail_url?: string;
+  original_description?: string;
+}) {
+  return request(`/admin/pois/${poiId}`, {
+    method: 'PUT',
+    body: JSON.stringify(poiData)
+  });
+}
+
+export async function adminDeletePOI(poiId: string) {
+  return request(`/admin/pois/${poiId}`, {
+    method: 'DELETE'
+  });
+}
+
+export async function adminGetPOIStatus(poiId: string) {
+  return request(`/admin/pois/${poiId}/pipeline-status`);
+}
+
+export async function adminGetMonitoring() {
+  return request('/admin/monitoring');
+}
