@@ -4,7 +4,7 @@ import { MapView } from './views/MapView';
 import { ChatView } from './views/ChatView';
 import { AdminDashboard } from './views/AdminDashboard';
 import { LanguageSelector } from './components/LanguageSelector';
-import { fetchAllPOIs, getStoredToken, clearStoredToken } from './services/api';
+import { fetchAllPOIs, getStoredToken, clearStoredToken, sendHeartbeat } from './services/api';
 import { POI, TourRoute } from './types';
 import { Map, MessageSquare, Compass, Shield } from 'lucide-react';
 
@@ -61,6 +61,24 @@ export default function App() {
     }
   }, [token]);
 
+  // Gửi tín hiệu trực tuyến (heartbeat) thời gian thực khi khách đang dùng ứng dụng
+  useEffect(() => {
+    if (!token) return;
+
+    let clientId = sessionStorage.getItem('visitor_client_id');
+    if (!clientId) {
+      clientId = 'vis_' + Math.random().toString(36).substring(2, 9);
+      sessionStorage.setItem('visitor_client_id', clientId);
+    }
+
+    sendHeartbeat(clientId).catch(() => {});
+    const interval = setInterval(() => {
+      sendHeartbeat(clientId).catch(() => {});
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [token]);
+
   // Nếu người dùng truy cập /admin
   if (currentPath === '/admin' || currentPath.startsWith('/admin/')) {
     return (
@@ -75,7 +93,7 @@ export default function App() {
           </button>
         </div>
         <div className="flex-1">
-          <AdminDashboard />
+          <AdminDashboard onBack={() => navigateTo('/')} />
         </div>
       </div>
     );

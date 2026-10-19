@@ -15,8 +15,40 @@ export function clearStoredToken() {
   localStorage.removeItem('access_token');
 }
 
+export function getAdminToken(): string | null {
+  return localStorage.getItem('admin_access_token');
+}
+
+export function setAdminToken(token: string) {
+  localStorage.setItem('admin_access_token', token);
+}
+
+export function clearAdminToken() {
+  localStorage.removeItem('admin_access_token');
+}
+
+export function parseJwt(token: string): any {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    return null;
+  }
+}
+
 async function request(endpoint: string, options: RequestInit = {}) {
-  const token = getStoredToken();
+  let token = getStoredToken();
+  if (endpoint.startsWith('/admin')) {
+    token = getAdminToken() || token;
+  }
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string> || {}),
@@ -140,3 +172,15 @@ export async function adminGetPOIStatus(poiId: string) {
 export async function adminGetMonitoring() {
   return request('/admin/monitoring');
 }
+
+export async function sendHeartbeat(clientId: string) {
+  return request('/auth/heartbeat', {
+    method: 'POST',
+    body: JSON.stringify({ client_id: clientId })
+  });
+}
+
+export async function getActiveVisitorsCount(): Promise<{ active_visitors: number }> {
+  return request('/auth/active-visitors');
+}
+

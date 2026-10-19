@@ -150,7 +150,7 @@ async def route_admin(path: str, request: Request):
         )
 
     # Định tuyến tùy tính năng Admin
-    if path.startswith("cash-code") or path.startswith("sessions"):
+    if path.startswith("cash-code") or path.startswith("sessions") or path.startswith("active-visitors"):
         url = f"{AUTH_SERVICE_URL}/auth/admin/{path.replace('admin/', '')}"
     elif path.startswith("monitoring"):
         url = f"{DATA_PIPELINE_SERVICE_URL}/monitoring"

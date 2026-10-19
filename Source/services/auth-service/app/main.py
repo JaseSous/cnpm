@@ -368,3 +368,31 @@ async def list_sessions():
         cursor.execute("SELECT session_id, auth_code, payment_method, amount, status, created_at FROM PaymentSessions ORDER BY created_at DESC LIMIT 50")
         rows = [dict(r) for r in cursor.fetchall()]
         return {"sessions": rows}
+
+
+# --- Theo dõi Lượng Khách Tham Quan Trực Tuyến Thời Gian Thực (Active Visitors) ---
+_active_visitors: dict[str, float] = {}
+
+class HeartbeatRequest(BaseModel):
+    client_id: Optional[str] = None
+
+@app.post("/auth/heartbeat", tags=["Active Visitors"])
+async def tourist_heartbeat(payload: Optional[HeartbeatRequest] = None):
+    """Du khách gửi tín hiệu định kỳ để ghi nhận đang trực tuyến"""
+    cid = (payload and payload.client_id) or str(uuid.uuid4())
+    now = time.time()
+    _active_visitors[cid] = now
+    # Dọn dẹp các visitor không gửi tín hiệu quá 25 giây
+    for k in [k for k, v in _active_visitors.items() if now - v > 25]:
+        _active_visitors.pop(k, None)
+    return {"status": "ok", "active_visitors": len(_active_visitors)}
+
+@app.get("/auth/active-visitors", tags=["Active Visitors"])
+@app.get("/auth/admin/active-visitors", tags=["Active Visitors"])
+async def get_active_visitors():
+    """Lấy số lượng du khách hiện đang trực tuyến theo thời gian thực"""
+    now = time.time()
+    for k in [k for k, v in _active_visitors.items() if now - v > 25]:
+        _active_visitors.pop(k, None)
+    return {"active_visitors": len(_active_visitors)}
+

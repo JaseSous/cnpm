@@ -8,9 +8,11 @@ import {
   adminDeletePOI,
   adminGetMonitoring,
   fetchAllPOIs,
-  setStoredToken,
-  getStoredToken,
-  clearStoredToken
+  getAdminToken,
+  setAdminToken,
+  clearAdminToken,
+  parseJwt,
+  getActiveVisitorsCount
 } from '../services/api';
 import { POI } from '../types';
 import { LINH_UNG_CENTER } from '../utils/geo';
@@ -28,14 +30,23 @@ import {
   AlertTriangle,
   Clock,
   MapPin,
-  X
+  X,
+  Users,
+  ArrowLeft
 } from 'lucide-react';
 
-export const AdminDashboard: React.FC = () => {
+interface AdminDashboardProps {
+  onBack?: () => void;
+}
+
+export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('admin123');
   const [loginError, setLoginError] = useState<string | null>(null);
+
+  // Số lượng khách tham quan trực tuyến thời gian thực
+  const [activeVisitors, setActiveVisitors] = useState<number>(0);
 
   // Dữ liệu quản trị
   const [pois, setPois] = useState<POI[]>([]);
@@ -47,6 +58,7 @@ export const AdminDashboard: React.FC = () => {
   const [cashCodeModal, setCashCodeModal] = useState<string | null>(null);
 
   // Form Thêm / Sửa POI
+  const [isFormOpen, setIsFormOpen] = useState<boolean>(false);
   const [editingPoi, setEditingPoi] = useState<POI | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -69,21 +81,26 @@ export const AdminDashboard: React.FC = () => {
   const miniMapInstance = useRef<L.Map | null>(null);
   const pickMarkerRef = useRef<L.Marker | null>(null);
 
-  // Kiểm tra token khi load
+  // Kiểm tra token admin khi load
   useEffect(() => {
-    const token = getStoredToken();
+    const token = getAdminToken();
     if (token) {
-      setIsLoggedIn(true);
-      loadPois();
-      loadMonitoring();
+      const payload = parseJwt(token);
+      if (payload && payload.role === 'admin') {
+        setIsLoggedIn(true);
+        loadPois();
+        loadMonitoring();
+        return;
+      }
     }
+    setIsLoggedIn(false);
   }, []);
 
-  // Polling tiến độ pipeline mỗi 2 giây theo đúng PRD
+  // Polling tiến độ pipeline và Lượng khách tham quan mỗi 2 giây theo thời gian thực
   useEffect(() => {
     if (!isLoggedIn) return;
 
-    const interval = setInterval(() => {
+    const poll = () => {
       fetchAllPOIs()
         .then((data) => {
           if (data && data.pois) {
@@ -91,7 +108,18 @@ export const AdminDashboard: React.FC = () => {
           }
         })
         .catch(() => {});
-    }, 2000);
+
+      getActiveVisitorsCount()
+        .then((data) => {
+          if (typeof data.active_visitors === 'number') {
+            setActiveVisitors(data.active_visitors);
+          }
+        })
+        .catch(() => {});
+    };
+
+    poll();
+    const interval = setInterval(poll, 2000);
 
     return () => clearInterval(interval);
   }, [isLoggedIn]);
@@ -123,7 +151,7 @@ export const AdminDashboard: React.FC = () => {
       if (res.role !== 'admin') {
         throw new Error('Tài khoản không có quyền Admin');
       }
-      setStoredToken(res.access_token);
+      setAdminToken(res.access_token);
       setIsLoggedIn(true);
       loadPois();
       loadMonitoring();
@@ -133,7 +161,7 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const handleLogout = () => {
-    clearStoredToken();
+    clearAdminToken();
     setIsLoggedIn(false);
   };
 
@@ -150,6 +178,7 @@ export const AdminDashboard: React.FC = () => {
 
   // Khởi tạo mini-map chọn tọa độ
   const openPoiForm = (poi?: POI) => {
+    setIsFormOpen(true);
     if (poi) {
       setEditingPoi(poi);
       setFormData({
@@ -175,6 +204,23 @@ export const AdminDashboard: React.FC = () => {
     setTimeout(() => {
       initMiniMap(poi ? [poi.latitude, poi.longitude] : [16.0998, 108.2773]);
     }, 150);
+  };
+
+  const closePoiForm = () => {
+    setIsFormOpen(false);
+    setEditingPoi(null);
+    setFormData({
+      name: '',
+      latitude: 16.0998,
+      longitude: 108.2773,
+      trigger_radius: 30,
+      thumbnail_url: '',
+      original_description: ''
+    });
+    if (miniMapInstance.current) {
+      miniMapInstance.current.remove();
+      miniMapInstance.current = null;
+    }
   };
 
   const initMiniMap = (center: [number, number]) => {
@@ -222,7 +268,7 @@ export const AdminDashboard: React.FC = () => {
           text: `Đã thêm ${res.name}. Pipeline dịch 15 ngôn ngữ đang chạy ngầm!`
         });
       }
-      setEditingPoi(null);
+      closePoiForm();
       loadPois();
     } catch (err: any) {
       setMsg({ type: 'error', text: err.message });
@@ -283,6 +329,17 @@ export const AdminDashboard: React.FC = () => {
             </button>
           </form>
 
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="w-full mt-3 py-2 text-xs text-slate-500 hover:text-slate-800 transition flex items-center justify-center space-x-1.5 border border-slate-200 rounded-xl hover:bg-slate-50"
+            >
+              <ArrowLeft size={14} />
+              <span>Quay lại Bản đồ Du khách</span>
+            </button>
+          )}
+
           <div className="text-[11px] text-slate-400 text-center mt-4">
             Seed mặc định: <code>admin</code> / <code>admin123</code>
           </div>
@@ -296,6 +353,16 @@ export const AdminDashboard: React.FC = () => {
       {/* Navbar Admin */}
       <nav className="bg-slate-900 text-white px-6 py-3.5 flex items-center justify-between shadow-md">
         <div className="flex items-center space-x-3">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs flex items-center space-x-1.5 transition border border-slate-700 active:scale-95 mr-1"
+              title="Quay lại Bản đồ Du khách"
+            >
+              <ArrowLeft size={14} />
+              <span className="hidden sm:inline">Về Bản Đồ</span>
+            </button>
+          )}
           <span className="text-xl">⛩️</span>
           <div>
             <h1 className="text-sm font-bold tracking-wide">ADMIN DASHBOARD</h1>
@@ -338,8 +405,48 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Main Tabs */}
+      {/* Main Content */}
       <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6">
+        {/* Thẻ Thống Kê Lượng Khách Tham Quan (User) Đang Dùng Theo Thời Gian Thực */}
+        <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+          <div className="flex items-center space-x-3.5">
+            <div className="relative flex items-center justify-center w-12 h-12 bg-emerald-100 text-emerald-700 rounded-2xl shadow-inner">
+              <Users size={24} />
+              <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
+              </span>
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Lượng khách tham quan (User) đang dùng
+                </span>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  Thời gian thực (Live)
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Tự động cập nhật mỗi 2 giây dựa trên thiết bị du khách đang trực tuyến
+              </p>
+            </div>
+          </div>
+
+          <div className="text-right">
+            <div className="flex items-baseline space-x-1.5 justify-end">
+              <span className="text-3xl font-black text-emerald-600 font-mono tracking-tight">
+                {activeVisitors}
+              </span>
+              <span className="text-xs font-bold text-slate-500">người</span>
+            </div>
+            <p className="text-[10px] text-emerald-600 font-medium flex items-center justify-end space-x-1">
+              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
+              <span>Đang kết nối</span>
+            </p>
+          </div>
+        </div>
+
+        {/* Main Tabs */}
         <div className="flex space-x-2 border-b border-slate-200 pb-2">
           <button
             onClick={() => setActiveTab('pois')}
@@ -423,7 +530,7 @@ export const AdminDashboard: React.FC = () => {
                             {isDone ? (
                               <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold text-[10px]">
                                 <CheckCircle size={12} />
-                                <span>{poi.pipeline_status}</span>
+                                <span>{poi.pipeline_status === 'done' ? 'Hoàn tất (15/15)' : poi.pipeline_status}</span>
                               </span>
                             ) : isProcessing ? (
                               <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full font-bold text-[10px] animate-pulse">
@@ -510,7 +617,7 @@ export const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Modal Form Thêm/Sửa POI */}
-      {editingPoi !== null || formData.name !== '' ? (
+      {isFormOpen && (
         <div className="fixed inset-0 z-[1000] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-6 border border-slate-100">
             <div className="flex items-center justify-between pb-3 mb-4 border-b">
@@ -518,7 +625,7 @@ export const AdminDashboard: React.FC = () => {
                 {editingPoi ? `Sửa Điểm Tham Quan: ${editingPoi.name}` : 'Thêm Điểm Tham Quan Mới'}
               </h3>
               <button
-                onClick={() => setFormData({ name: '', latitude: 16.0998, longitude: 108.2773, trigger_radius: 30, thumbnail_url: '', original_description: '' })}
+                onClick={closePoiForm}
                 className="p-1 text-slate-400 hover:text-slate-600"
               >
                 <X size={20} />
@@ -612,7 +719,7 @@ export const AdminDashboard: React.FC = () => {
               <div className="flex justify-end space-x-2 pt-3 border-t">
                 <button
                   type="button"
-                  onClick={() => setFormData({ name: '', latitude: 16.0998, longitude: 108.2773, trigger_radius: 30, thumbnail_url: '', original_description: '' })}
+                  onClick={closePoiForm}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-medium"
                 >
                   Hủy
@@ -627,7 +734,7 @@ export const AdminDashboard: React.FC = () => {
             </form>
           </div>
         </div>
-      ) : null}
+      )}
 
       {/* Modal Hiển thị Mã Tiền Mặt vừa tạo */}
       {cashCodeModal && (
