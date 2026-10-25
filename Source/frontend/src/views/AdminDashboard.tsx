@@ -7,6 +7,7 @@ import {
   adminUpdatePOI,
   adminDeletePOI,
   adminGetMonitoring,
+  adminGetPOIs,
   fetchAllPOIs,
   getAdminToken,
   setAdminToken,
@@ -101,10 +102,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
     if (!isLoggedIn) return;
 
     const poll = () => {
-      fetchAllPOIs()
+      adminGetPOIs()
         .then((data) => {
-          if (data && data.pois) {
-            setPois(data.pois);
+          if (Array.isArray(data)) {
+            setPois(data);
           }
         })
         .catch(() => {});
@@ -127,8 +128,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
   const loadPois = async () => {
     setLoading(true);
     try {
-      const data = await fetchAllPOIs();
-      setPois(data.pois || []);
+      const data = await adminGetPOIs();
+      setPois(Array.isArray(data) ? data : []);
     } catch (err: any) {
       setMsg({ type: 'error', text: err.message });
     } finally {
@@ -499,71 +500,79 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {pois.map((poi) => {
-                    const isDone = poi.pipeline_status?.includes('done') || poi.pipeline_status?.includes('Hoàn tất');
-                    const isProcessing = poi.pipeline_status?.includes('Đang xử lý');
-                    const isError = poi.pipeline_status?.includes('Lỗi');
+                  {pois.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="p-8 text-center text-slate-400">
+                        {loading ? 'Đang tải danh sách điểm tham quan...' : 'Chưa có điểm tham quan nào trong hệ thống.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    pois.map((poi) => {
+                      const isDone = poi.pipeline_status?.includes('done') || poi.pipeline_status?.includes('Hoàn tất');
+                      const isProcessing = poi.pipeline_status?.includes('Đang xử lý');
+                      const isError = poi.pipeline_status?.includes('Lỗi');
 
-                    return (
-                      <tr key={poi.poi_id} className="hover:bg-slate-50 transition">
-                        <td className="p-3 flex items-center space-x-3">
-                          {poi.thumbnail_url ? (
-                            <img src={poi.thumbnail_url} className="w-10 h-10 rounded-lg object-cover" />
-                          ) : (
-                            <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center text-amber-700 font-bold">
-                              ⛩️
-                            </div>
-                          )}
-                          <div>
-                            <p className="font-semibold text-slate-800 text-xs">{poi.name}</p>
-                            <p className="text-[10px] text-slate-400 font-mono">{poi.poi_id}</p>
-                          </div>
-                        </td>
-                        <td className="p-3 font-mono text-slate-600">
-                          {poi.latitude.toFixed(5)}, {poi.longitude.toFixed(5)}
-                        </td>
-                        <td className="p-3 font-semibold text-slate-700">
-                          {poi.trigger_radius}m
-                        </td>
-                        <td className="p-3">
-                          <div className="flex items-center space-x-2">
-                            {isDone ? (
-                              <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold text-[10px]">
-                                <CheckCircle size={12} />
-                                <span>{poi.pipeline_status === 'done' ? 'Hoàn tất (15/15)' : poi.pipeline_status}</span>
-                              </span>
-                            ) : isProcessing ? (
-                              <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full font-bold text-[10px] animate-pulse">
-                                <Clock size={12} />
-                                <span>{poi.pipeline_status}</span>
-                              </span>
+                      return (
+                        <tr key={poi.poi_id} className="hover:bg-slate-50 transition">
+                          <td className="p-3 flex items-center space-x-3">
+                            {poi.thumbnail_url ? (
+                              <img src={poi.thumbnail_url} className="w-10 h-10 rounded-lg object-cover" />
                             ) : (
-                              <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-red-100 text-red-800 rounded-full font-bold text-[10px]">
-                                <AlertTriangle size={12} />
-                                <span>{poi.pipeline_status}</span>
-                              </span>
+                              <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center text-amber-700 font-bold">
+                                ⛩️
+                              </div>
                             )}
-                          </div>
-                        </td>
-                        <td className="p-3 text-right space-x-2">
-                          <button
-                            onClick={() => openPoiForm(poi)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                            title="Sửa POI"
-                          >
-                            <Edit2 size={15} />
-                          </button>
-                          <button
-                            onClick={() => handleDeletePOI(poi.poi_id)}
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition"
-                            title="Xóa POI"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                            <div>
+                              <p className="font-semibold text-slate-800 text-xs">{poi.name}</p>
+                              <p className="text-[10px] text-slate-400 font-mono">{poi.poi_id}</p>
+                            </div>
+                          </td>
+                          <td className="p-3 font-mono text-slate-600">
+                            {Number(poi.latitude).toFixed(5)}, {Number(poi.longitude).toFixed(5)}
+                          </td>
+                          <td className="p-3 font-semibold text-slate-700">
+                            {poi.trigger_radius}m
+                          </td>
+                          <td className="p-3">
+                            <div className="flex items-center space-x-2">
+                              {isDone ? (
+                                <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold text-[10px]">
+                                  <CheckCircle size={12} />
+                                  <span>{poi.pipeline_status === 'done' ? 'Hoàn tất (15/15)' : poi.pipeline_status}</span>
+                                </span>
+                              ) : isProcessing ? (
+                                <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full font-bold text-[10px] animate-pulse">
+                                  <Clock size={12} />
+                                  <span>{poi.pipeline_status}</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-red-100 text-red-800 rounded-full font-bold text-[10px]">
+                                  <AlertTriangle size={12} />
+                                  <span>{poi.pipeline_status}</span>
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3 text-right space-x-2">
+                            <button
+                              onClick={() => openPoiForm(poi)}
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                              title="Sửa POI"
+                            >
+                              <Edit2 size={15} />
+                            </button>
+                            <button
+                              onClick={() => handleDeletePOI(poi.poi_id)}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition"
+                              title="Xóa POI"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>

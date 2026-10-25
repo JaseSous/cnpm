@@ -44,10 +44,10 @@ export function parseJwt(token: string): any {
 }
 
 async function request(endpoint: string, options: RequestInit = {}) {
-  let token = getStoredToken();
-  if (endpoint.startsWith('/admin')) {
-    token = getAdminToken() || token;
-  }
+  // Ưu tiên token admin nếu là route /admin, hoặc khi không có token du khách nhưng có token admin
+  let token = endpoint.startsWith('/admin')
+    ? (getAdminToken() || getStoredToken())
+    : (getStoredToken() || getAdminToken());
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -64,8 +64,11 @@ async function request(endpoint: string, options: RequestInit = {}) {
   });
 
   if (res.status === 401) {
-    // A1: Token hết hạn hoặc sai -> xóa token và ném lỗi để quay về màn hình xác thực
-    clearStoredToken();
+    if (endpoint.startsWith('/admin')) {
+      clearAdminToken();
+    } else {
+      clearStoredToken();
+    }
     const data = await res.json().catch(() => ({}));
     throw new Error(data.detail || 'Mã xác thực không hợp lệ hoặc đã hết hạn');
   }
@@ -129,6 +132,13 @@ export async function adminCreateCashCode() {
   return request('/admin/cash-code', {
     method: 'POST'
   });
+}
+
+export async function adminGetPOIs(): Promise<POI[]> {
+  const res = await request('/admin/pois');
+  if (Array.isArray(res)) return res;
+  if (res && Array.isArray(res.pois)) return res.pois;
+  return [];
 }
 
 export async function adminCreatePOI(poiData: {
