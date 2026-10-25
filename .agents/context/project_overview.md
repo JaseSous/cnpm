@@ -36,9 +36,11 @@
 
 ## 4. Hướng Triển Khai Nhóm Đã Chọn
 
-Theo yêu cầu môn học được giảng viên ghi trên bảng:
-- Nhóm chọn **Hướng 3**: **Backend Dev tạo các services giao tiếp với nhau bao gồm CD/CI**.
-- Hệ thống backend được phân tách thành các microservices độc lập, đảm bảo khả năng mở rộng (scalability), phân tách trách nhiệm (separation of concerns), và tự động hóa toàn bộ quy trình kiểm thử và tích hợp thông qua CI/CD.
+Theo yêu cầu môn học được giảng viên ghi trên bảng (gồm 3 đề tài riêng biệt):
+- **Đề tài nhóm chọn: Hướng 3** — **BE Dev Tạo các services giao tiếp với nhau bao gồm CD/CI**.
+- **Phạm vi giao diện:** Nhóm chỉ phát triển **Web App** (React + Vite + TypeScript, giao diện responsive mobile-first tối ưu cho trình duyệt điện thoại du khách).
+- **Lưu ý phạm vi:** Mục *"1. FE DEV (React Native + React.js)"* trên bảng là một đề tài riêng biệt khác của nhóm khác, nhóm **không** chọn và **không** triển khai ứng dụng di động React Native.
+- **Mục tiêu trước mắt:** Đảm bảo toàn bộ luồng demo từ UC01 đến UC04 chạy mượt mà, ổn định phục vụ các đợt kiểm tra và báo cáo.
 
 ---
 

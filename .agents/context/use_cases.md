@@ -6,8 +6,8 @@
 
 ## 1. UC01 — Xác Thực và Cấp Quyền Truy Cập
 
-- **Actor(s):** Customer (Du khách / Client App), Payoo Payment API.
-- **Tóm tắt:** Du khách gửi mã xác thực sau khi thanh toán (`auth_code` từ luồng online hoặc `shorted_code` từ vé tiền mặt) tới hệ thống để kiểm tra và nhận JWT `access_token` truy cập ứng dụng.
+- **Actor(s):** Customer (Du khách / Client App), Payoo Payment API (Giả lập Mock Webhook).
+- **Tóm tắt:** Du khách gửi mã xác thực sau khi thanh toán (`auth_code` từ luồng online Payoo Mock hoặc `shorted_code` từ vé tiền mặt) tới hệ thống để kiểm tra và nhận JWT `access_token` truy cập ứng dụng.
 
 ### Luồng sự kiện chính (Basic Course of Events)
 1. Customer hoàn tất thanh toán và gửi yêu cầu xác thực kèm mã xác thực trên Client App.
@@ -94,9 +94,9 @@
 2. `poi-service` lưu thông tin cơ bản vào POI DB và trả phản hồi thành công ngay lập tức cho Admin (non-blocking).
 3. Đồng thời, `poi-service` đẩy một sự kiện (`poi.upserted`) vào Message Queue (RabbitMQ).
 4. `data-pipeline-service` lắng nghe hàng đợi, nhận dữ liệu văn bản gốc của POI.
-5. `data-pipeline-service` gọi Translation & TTS APIs để dịch mô tả sang 15+ ngôn ngữ và tổng hợp âm thanh.
-6. Cập nhật bản dịch và audio URL vào `POILocalizations` trong POI DB.
-7. Tạo vector embeddings mới và đồng bộ sang Vector DB phục vụ Chatbot RAG.
+5. `data-pipeline-service` gọi Translation APIs dịch mô tả sang 15+ ngôn ngữ. Với audio TTS, hệ thống để trống `audio_url = ""` để Client tự động thuyết minh bằng Web Speech API trên trình duyệt (không tạo và không lưu trữ file MP3 vật lý).
+6. Cập nhật bản dịch và `audio_url = ""` vào `POILocalizations` trong POI DB.
+7. Tạo vector embeddings mới và đồng bộ sang Vector DB (SQLite) phục vụ Chatbot RAG.
 
 ### Luồng rẽ nhánh đặc biệt bắt buộc (Alternative Path — A1)
 - **A1 — Admin chỉ sửa tọa độ hoặc bán kính (Mô tả gốc giữ nguyên):**

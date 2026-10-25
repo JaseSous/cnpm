@@ -17,15 +17,16 @@
 
 ---
 
-## 2. Frontend Client & Admin
+## 2. Frontend Client & Admin (Chỉ Web App)
 
+- **Phạm vi nền tảng:** Duy nhất **Web App** (không làm React Native).
 - **Thư viện chính:** [React 18](https://react.dev/)
 - **Ngôn ngữ:** [TypeScript](https://www.typescriptlang.org/)
 - **Build Tool:** [Vite](https://vitejs.dev/) (khởi động cực nhanh, tối ưu HMR).
 - **Styling:** [TailwindCSS](https://tailwindcss.com/) + PostCSS
 - **Bản đồ số & Tọa độ:** [Leaflet](https://leafletjs.com/) (hiển thị vị trí người dùng, vẽ vòng tròn bán kính kích hoạt Geofence).
 - **Biểu tượng (Icons):** [Lucide React](https://lucide.dev/)
-- **Thuyết minh giọng nói:** Tích hợp [Web Speech API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API) phát âm thanh trực tiếp trên trình duyệt Client theo từng ngôn ngữ đã tải.
+- **Thuyết minh giọng nói:** Tích hợp [Web Speech API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API) (`window.speechSynthesis`) phát âm thanh trực tiếp trên trình duyệt Client theo từng ngôn ngữ đã tải. Không cần máy chủ lưu trữ file âm thanh MP3 vật lý.
 
 ---
 
@@ -45,19 +46,21 @@
 ## 4. Trí Tuệ Nhân Tạo (AI) & Xử Lý Đa Ngôn Ngữ
 
 - **Kỹ thuật Chatbot:** RAG (Retrieval-Augmented Generation).
-- **Vector Search:** Tính toán độ tương đồng Cosine Similarity dựa trên vector embedding với ngưỡng phân định `SIMILARITY_THRESHOLD = 0.35`.
+- **Vector Search:** Lưu trữ vector trong SQLite nội bộ (`chatbot_vectors.db`), tính toán độ tương đồng Cosine Similarity trên bộ nhớ với ngưỡng phân định `SIMILARITY_THRESHOLD = 0.35`. Giải pháp này giúp loại bỏ container Vector DB nặng (như Qdrant) để máy demo chạy nhẹ nhàng và ổn định 100%.
 - **Dịch thuật tự động:** Hỗ trợ cấu hình pipeline dịch thuật sang 15+ ngôn ngữ:
   `vi, en, zh, ja, ko, fr, de, es, ru, th, id, ms, it, pt, ar`.
+- **Cổng thanh toán:** Sử dụng luồng giả lập Payoo Mock (`/auth/payoo/create-session`, `/auth/payoo/webhook-mock`).
 
 ---
 
 ## 5. DevOps, Container Hóa & CI/CD
 
 - **Container Engine:** Docker & Docker Compose v2.
-- **CI/CD Platform:** GitHub Actions (`.github/workflows/ci.yml`):
+- **CI (Continuous Integration):** GitHub Actions (`.github/workflows/ci.yml`):
   - Job tự động kiểm thử Unit Test Backend (`pytest -v tests/test_backend.py`).
   - Job build Frontend bundle (`npm run build`).
   - Job kiểm tra tính đúng đắn khi build Dockerfile của toàn bộ 5 backend services và frontend.
+- **CD (Continuous Deployment):** Chưa triển khai do chưa cấu hình máy chủ VPS/Cloud remote. Triển khai demo trực tiếp trên máy cục bộ bằng Docker Compose hoặc script.
 - **Kịch bản khởi chạy tự động:**
   - `start.bat` (Windows): Khởi động toàn bộ hệ thống bằng 1 lệnh không cần Docker.
   - `start.sh` (Linux/macOS).
