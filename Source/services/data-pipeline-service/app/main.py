@@ -34,91 +34,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def update_poi_status_and_localizations(poi_id: str, status_str: str, localizations: List[dict]):
-    """Cập nhật tiến độ và danh sách bản dịch trực tiếp vào database của POI Service"""
-    poi_db_path = DATA_DIR / "poi.db"
-    try:
-        with sqlite3.connect(poi_db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute("UPDATE POIs SET pipeline_status = ? WHERE poi_id = ?", (status_str, poi_id))
-            for loc in localizations:
-                loc_id = f"loc_{poi_id}_{loc['language_code']}"
-                cursor.execute("""
-                    INSERT OR REPLACE INTO POILocalizations 
-                    (localization_id, poi_id, language_code, translated_title, translated_description, audio_url)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (
-                    loc_id, poi_id, loc["language_code"],
-                    loc["translated_title"], loc["translated_description"], loc.get("audio_url", "")
-                ))
-            conn.commit()
-    except Exception as e:
-        # UC04 E2: Lỗi ghi dữ liệu vào POI DB -> ghi nhận cảnh báo lên Monitoring
-        shared_queue.log_error(f"Lỗi ghi POI DB cho {poi_id}: {str(e)}", {"poi_id": poi_id})
-
-def process_poi_event(event_data: dict):
-    """
-    UC04 bước 4-7: Xử lý message 'poi.upserted' nhận từ Message Queue
-    - Dịch sang 15 ngôn ngữ
-    - Sinh Audio TTS
-    - Cập nhật tiến độ từng bước
-    - Đồng bộ sang Vector DB cho Chatbot RAG
-    """
-    poi_id = event_data.get("poi_id")
-    name = event_data.get("name", "")
-    original_description = event_data.get("original_description", "")
-    languages = event_data.get("languages", SUPPORTED_LANGUAGES)
-
-    total_langs = len(languages)
-    completed_locs = []
-
-    try:
-        for idx, lang in enumerate(languages, 1):
-            # Cập nhật tiến độ theo thời gian thực (vd: "Đang xử lý (3/15)", "Đang xử lý (7/15)")
-            status_text = f"Đang xử lý ({idx}/{total_langs})"
-            
-            # UC04 bước 5: Dịch mô tả và tên sang ngôn ngữ mục tiêu
-            translated_desc = AIAdapter.translate(original_description, lang)
-            translated_title = AIAdapter.translate(name, lang) if lang != "vi" else name
-
-            # Sinh audio TTS
-            audio_url = AIAdapter.synthesize_speech(translated_desc, lang)
-
-            completed_locs.append({
-                "language_code": lang,
-                "translated_title": translated_title,
-                "translated_description": translated_desc,
-                "audio_url": audio_url
-            })
-
-            # Cập nhật tiến độ sau mỗi ngôn ngữ
-            update_poi_status_and_localizations(poi_id, status_text, completed_locs)
-            
-            # Nghỉ nhẹ 50ms để tạo hiệu ứng chuyển động tiến độ thực tế khi demo
-            time.sleep(0.05)
-
-        # Hoàn tất tiến trình dịch
-        final_status = "Hoàn tất (15/15)"
-        update_poi_status_and_localizations(poi_id, final_status, completed_locs)
-
-        # UC04 bước 7: Cập nhật vector embeddings vào Vector DB cho Chatbot RAG
-        chunk_text = f"{name}. {original_description}"
-        vec = AIAdapter.get_embedding(chunk_text)
-        shared_vector_store.add_vector(
-            vector_id=f"vec_{poi_id}",
-            poi_id=poi_id,
-            chunk_text=chunk_text,
-            embedding=vec,
-            metadata={"name": name, "category": "poi_updated"}
-        )
-
-    except Exception as e:
-        # UC04 E1: Lỗi API -> Ném lỗi để Message Queue thực hiện Retry hoặc đưa vào Dead-Letter Queue
-        update_poi_status_and_localizations(poi_id, "Lỗi xử lý", completed_locs)
-        raise e
+from shared.pipeline_worker import run_poi_pipeline, update_poi_status_and_localizations
 
 # Đăng ký consumer lắng nghe Message Queue
-shared_queue.subscribe(process_poi_event)
+shared_queue.subscribe(run_poi_pipeline)
 
 
 # --- Endpoints ---
@@ -131,7 +50,7 @@ async def health_check():
 @app.post("/pipeline/process-poi", tags=["Pipeline Processing"])
 async def trigger_process_poi(payload: dict):
     """UC04: Tiếp nhận event 'poi.upserted' từ poi-service (multi-process) và xử lý bất đồng bộ"""
-    thread = threading.Thread(target=process_poi_event, args=(payload,), daemon=True)
+    thread = threading.Thread(target=run_poi_pipeline, args=(payload,), daemon=True)
     thread.start()
     return {"status": "accepted", "message": "Tiến trình dịch thuật đang chạy ngầm"}
 

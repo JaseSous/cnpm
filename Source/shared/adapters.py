@@ -109,24 +109,34 @@ class LocalEventQueue:
                                 self._dead_letter_queue.append(item)
             else:
                 # 2. Nếu không có subscriber trong process này (khi poi-service chạy độc lập đa tiến trình)
-                # Gửi sự kiện sang data-pipeline-service qua HTTP
+                # Ưu tiên gửi sự kiện sang data-pipeline-service qua HTTP
+                dispatched = False
                 try:
                     import httpx
                     from shared.config import DATA_PIPELINE_SERVICE_URL
                     url = f"{DATA_PIPELINE_SERVICE_URL}/pipeline/process-poi"
-                    resp = httpx.post(url, json=item["message"], timeout=5.0)
-                    if resp.status_code not in (200, 202):
+                    resp = httpx.post(url, json=item["message"], timeout=4.0)
+                    if resp.status_code in (200, 202):
+                        dispatched = True
+                    else:
                         raise Exception(f"HTTP {resp.status_code}: {resp.text}")
                 except Exception as e:
-                    item["retries"] += 1
-                    err_msg = f"Lỗi chuyển tiếp event sang data-pipeline-service: {str(e)}"
-                    self.log_error(err_msg, item["message"])
-                    if item["retries"] < 3:
-                        with self._lock:
-                            self._queue.append(item)
-                    else:
-                        with self._lock:
-                            self._dead_letter_queue.append(item)
+                    self.log_error(f"Data Pipeline Service không phản hồi ({str(e)}). Tự động kích hoạt luồng fallback xử lý tại chỗ...", item["message"])
+
+                # 3. Resilient Fallback: Tự động chạy worker xử lý ngầm cục bộ nếu remote service lỗi
+                if not dispatched:
+                    try:
+                        from shared.pipeline_worker import run_poi_pipeline
+                        run_poi_pipeline(item["message"])
+                    except Exception as fallback_err:
+                        item["retries"] += 1
+                        self.log_error(f"Lỗi xử lý fallback: {str(fallback_err)}", item["message"])
+                        if item["retries"] < 3:
+                            with self._lock:
+                                self._queue.append(item)
+                        else:
+                            with self._lock:
+                                self._dead_letter_queue.append(item)
 
         thread = threading.Thread(target=worker, daemon=True)
         thread.start()

@@ -41,7 +41,8 @@ def main():
             "app.main:app",
             "--host", "0.0.0.0",
             "--port", str(svc["port"]),
-            "--app-dir", app_dir
+            "--app-dir", app_dir,
+            "--reload"
         ]
         p = subprocess.Popen(cmd, cwd=str(ROOT_DIR))
         processes.append((svc["name"], p))
