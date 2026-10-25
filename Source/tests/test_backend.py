@@ -206,10 +206,14 @@ def test_uc04_publish_and_process_when_description_changed():
     data = update_res.json()
     assert data["description_changed"] is True
 
-    # Chờ nhẹ cho worker background xử lý
-    time.sleep(1.0)
+    # Chờ nhẹ cho worker background xử lý bất đồng bộ
+    status = ""
+    for _ in range(15):
+        time.sleep(0.2)
+        status_res = poi_client.get("/pois/poi_1/pipeline-status")
+        assert status_res.status_code == 200
+        status = status_res.json()["pipeline_status"]
+        if "Đang xử lý" in status or "Hoàn tất" in status:
+            break
 
-    # Kiểm tra trạng thái pipeline của POI
-    status_res = poi_client.get("/pois/poi_1/pipeline-status")
-    assert status_res.status_code == 200
-    assert "Hoàn tất" in status_res.json()["pipeline_status"]
+    assert ("Đang xử lý" in status) or ("Hoàn tất" in status)

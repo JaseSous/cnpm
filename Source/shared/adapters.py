@@ -92,21 +92,39 @@ class LocalEventQueue:
                     return
                 item = self._queue.pop(0)
 
-            success = False
-            for sub in self._subscribers:
+            # 1. Nếu có subscriber cục bộ trong cùng process (ví dụ trong unit tests)
+            if self._subscribers:
+                for sub in self._subscribers:
+                    try:
+                        sub(item["message"])
+                    except Exception as e:
+                        item["retries"] += 1
+                        err_msg = f"Lỗi xử lý event: {str(e)}"
+                        self.log_error(err_msg, item["message"])
+                        if item["retries"] < 3:
+                            with self._lock:
+                                self._queue.append(item)
+                        else:
+                            with self._lock:
+                                self._dead_letter_queue.append(item)
+            else:
+                # 2. Nếu không có subscriber trong process này (khi poi-service chạy độc lập đa tiến trình)
+                # Gửi sự kiện sang data-pipeline-service qua HTTP
                 try:
-                    sub(item["message"])
-                    success = True
+                    import httpx
+                    from shared.config import DATA_PIPELINE_SERVICE_URL
+                    url = f"{DATA_PIPELINE_SERVICE_URL}/pipeline/process-poi"
+                    resp = httpx.post(url, json=item["message"], timeout=5.0)
+                    if resp.status_code not in (200, 202):
+                        raise Exception(f"HTTP {resp.status_code}: {resp.text}")
                 except Exception as e:
                     item["retries"] += 1
-                    err_msg = f"Lỗi xử lý event: {str(e)}"
+                    err_msg = f"Lỗi chuyển tiếp event sang data-pipeline-service: {str(e)}"
                     self.log_error(err_msg, item["message"])
                     if item["retries"] < 3:
-                        # Thử lại
                         with self._lock:
                             self._queue.append(item)
                     else:
-                        # UC04 E1: Quá số lần thì đẩy vào Dead-Letter Queue
                         with self._lock:
                             self._dead_letter_queue.append(item)
 
@@ -230,20 +248,51 @@ class AIAdapter:
 
     @staticmethod
     def translate(text: str, target_lang: str) -> str:
-        """UC04 bước 5: Dịch sang 15 ngôn ngữ (Mock = thêm prefix [lang])"""
-        if target_lang == "vi":
+        """UC04 bước 5: Dịch sang 15 ngôn ngữ (Google Translate / Gemini / Fallback)"""
+        if not text or not text.strip() or target_lang == "vi":
             return text
+
+        # Map target_lang sang chuẩn mã Google Translate
+        gt_lang_map = {
+            "zh": "zh-CN",
+        }
+        tl = gt_lang_map.get(target_lang, target_lang)
+
+        # 1. Google Translate (GTX) - Tự động dịch miễn phí, tốc độ cao, hỗ trợ 100% 15 ngôn ngữ
+        try:
+            import httpx
+            url = "https://translate.googleapis.com/translate_a/single"
+            params = {
+                "client": "gtx",
+                "sl": "vi",
+                "tl": tl,
+                "dt": "t",
+                "q": text
+            }
+            resp = httpx.get(url, params=params, timeout=6.0)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data and isinstance(data, list) and len(data) > 0 and isinstance(data[0], list):
+                    translated_parts = [segment[0] for segment in data[0] if segment and len(segment) > 0 and segment[0]]
+                    if translated_parts:
+                        return "".join(translated_parts).strip()
+        except Exception:
+            pass
+
+        # 2. Gemini Generative AI (nếu được cấu hình)
         if TRANSLATION_MODE == "gemini" and GEMINI_API_KEY:
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=GEMINI_API_KEY)
                 model = genai.GenerativeModel("gemini-1.5-flash")
-                prompt = f"Translate the following Vietnamese text into {target_lang}. Keep it respectful and suitable for a Buddhist pagoda audio guide:\n\n{text}"
+                prompt = f"Translate the following Vietnamese text into language code '{target_lang}'. Output ONLY the translated text:\n\n{text}"
                 resp = model.generate_content(prompt)
-                return resp.text.strip()
+                if resp.text:
+                    return resp.text.strip()
             except Exception:
                 pass
-        # Mặc định Mock mode: thêm tiền tố [lang]
+
+        # 3. Fallback an toàn nếu mất mạng
         return f"[{target_lang}] {text}"
 
     @staticmethod

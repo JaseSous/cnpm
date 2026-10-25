@@ -9,6 +9,7 @@ import os
 import time
 import sqlite3
 import httpx
+import threading
 from typing import List, Dict, Any
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -76,9 +77,9 @@ def process_poi_event(event_data: dict):
             # Cập nhật tiến độ theo thời gian thực (vd: "Đang xử lý (3/15)", "Đang xử lý (7/15)")
             status_text = f"Đang xử lý ({idx}/{total_langs})"
             
-            # UC04 bước 5: Dịch mô tả sang ngôn ngữ mục tiêu
+            # UC04 bước 5: Dịch mô tả và tên sang ngôn ngữ mục tiêu
             translated_desc = AIAdapter.translate(original_description, lang)
-            translated_title = f"[{lang}] {name}" if lang != "vi" else name
+            translated_title = AIAdapter.translate(name, lang) if lang != "vi" else name
 
             # Sinh audio TTS
             audio_url = AIAdapter.synthesize_speech(translated_desc, lang)
@@ -125,6 +126,14 @@ shared_queue.subscribe(process_poi_event)
 @app.get("/health", tags=["Health"])
 async def health_check():
     return {"status": "ok", "service": "data-pipeline-service"}
+
+
+@app.post("/pipeline/process-poi", tags=["Pipeline Processing"])
+async def trigger_process_poi(payload: dict):
+    """UC04: Tiếp nhận event 'poi.upserted' từ poi-service (multi-process) và xử lý bất đồng bộ"""
+    thread = threading.Thread(target=process_poi_event, args=(payload,), daemon=True)
+    thread.start()
+    return {"status": "accepted", "message": "Tiến trình dịch thuật đang chạy ngầm"}
 
 
 @app.get("/monitoring", tags=["Monitoring"])
