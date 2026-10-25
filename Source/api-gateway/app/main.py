@@ -32,6 +32,7 @@ app.add_middleware(
 
 
 @app.get("/health", tags=["Health"])
+@app.get("/api/health", tags=["Health"])
 async def aggregated_health_check():
     """Nâng cấp /health của gateway thành tổng hợp trạng thái các service"""
     services = {
@@ -116,31 +117,35 @@ async def forward_request(target_url: str, request: Request):
 
 # --- ROUTING RULES ---
 
-# 1. /auth/* : Không cần token ban đầu
+# 1. /auth/* & /api/auth/*
 @app.api_route("/auth/{path:path}", methods=["GET", "POST", "PUT", "DELETE"], tags=["Auth"])
+@app.api_route("/api/auth/{path:path}", methods=["GET", "POST", "PUT", "DELETE"], tags=["Auth"])
 async def route_auth(path: str, request: Request):
     url = f"{AUTH_SERVICE_URL}/auth/{path}"
     return await forward_request(url, request)
 
 
-# 2. /pois/* : Bắt buộc có access_token hợp lệ
+# 2. /pois/* & /api/pois/*
 @app.api_route("/pois/{path:path}", methods=["GET", "POST", "PUT", "DELETE"], tags=["POIs"])
+@app.api_route("/api/pois/{path:path}", methods=["GET", "POST", "PUT", "DELETE"], tags=["POIs"])
 async def route_pois(path: str, request: Request):
     await authenticate_request(request)
     url = f"{POI_SERVICE_URL}/pois/{path}"
     return await forward_request(url, request)
 
 
-# 3. /chat/* : Bắt buộc có access_token hợp lệ
+# 3. /chat/* & /api/chat/*
 @app.api_route("/chat/{path:path}", methods=["GET", "POST", "PUT", "DELETE"], tags=["Chatbot"])
+@app.api_route("/api/chat/{path:path}", methods=["GET", "POST", "PUT", "DELETE"], tags=["Chatbot"])
 async def route_chat(path: str, request: Request):
     await authenticate_request(request)
     url = f"{CHATBOT_SERVICE_URL}/chat/{path}"
     return await forward_request(url, request)
 
 
-# 4. /admin/* : Bắt buộc có access_token và role == "admin"
+# 4. /admin/* & /api/admin/*
 @app.api_route("/admin/{path:path}", methods=["GET", "POST", "PUT", "DELETE"], tags=["Admin"])
+@app.api_route("/api/admin/{path:path}", methods=["GET", "POST", "PUT", "DELETE"], tags=["Admin"])
 async def route_admin(path: str, request: Request):
     user = await authenticate_request(request)
     if user.get("role") != "admin":
@@ -159,8 +164,9 @@ async def route_admin(path: str, request: Request):
     return await forward_request(url, request)
 
 
-# 5. /monitoring: Monitoring dashboard
+# 5. /monitoring & /api/monitoring
 @app.get("/monitoring", tags=["Monitoring"])
+@app.get("/api/monitoring", tags=["Monitoring"])
 async def route_monitoring(request: Request):
     user = await authenticate_request(request)
     if user.get("role") != "admin":

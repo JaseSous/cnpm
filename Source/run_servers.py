@@ -1,4 +1,5 @@
-# Runner khởi động toàn bộ 5 Backend Services + API Gateway trong chế độ Local
+# Runner khởi động toàn bộ 5 Backend Services + API Gateway (tương thích Local & Cloud Render)
+import os
 import sys
 import time
 import subprocess
@@ -7,12 +8,15 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent
 
+# Trên Render hoặc Cloud PaaS, cổng chính được cấp qua biến môi trường PORT (mặc định 10000)
+GATEWAY_PORT = int(os.environ.get("PORT", 8000))
+
 SERVICES = [
     {"name": "Auth Service", "path": "services/auth-service/app/main.py", "port": 8001},
     {"name": "POI Service", "path": "services/poi-service/app/main.py", "port": 8002},
     {"name": "Chatbot Service", "path": "services/chatbot-service/app/main.py", "port": 8003},
     {"name": "Data Pipeline Service", "path": "services/data-pipeline-service/app/main.py", "port": 8004},
-    {"name": "API Gateway", "path": "api-gateway/app/main.py", "port": 8000},
+    {"name": "API Gateway", "path": "api-gateway/app/main.py", "port": GATEWAY_PORT},
 ]
 
 processes = []
