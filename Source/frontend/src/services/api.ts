@@ -1,7 +1,7 @@
 // API Client giao tiếp với API Gateway qua đường dẫn /api
 import { POI, TourRoute } from '../types';
 
-const API_BASE = '/api';
+const API_BASE = (import.meta as any).env?.VITE_API_BASE || '/api';
 
 export function getStoredToken(): string | null {
   return localStorage.getItem('access_token');
