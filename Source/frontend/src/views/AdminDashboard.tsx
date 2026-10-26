@@ -33,6 +33,8 @@ import {
   MapPin,
   X,
   Users,
+  UserCheck,
+  TrendingUp,
   ArrowLeft
 } from 'lucide-react';
 
@@ -46,8 +48,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
   const [password, setPassword] = useState('admin123');
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  // Số lượng khách tham quan trực tuyến thời gian thực
-  const [activeVisitors, setActiveVisitors] = useState<number>(0);
+  // Thống kê lượng khách tham quan (đang online, hôm nay, tổng số)
+  const [visitorStats, setVisitorStats] = useState<{
+    active_visitors: number;
+    today_visitors: number;
+    total_visitors: number;
+  }>({
+    active_visitors: 0,
+    today_visitors: 0,
+    total_visitors: 0,
+  });
 
   // Dữ liệu quản trị
   const [pois, setPois] = useState<POI[]>([]);
@@ -112,8 +122,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
 
       getActiveVisitorsCount()
         .then((data) => {
-          if (typeof data.active_visitors === 'number') {
-            setActiveVisitors(data.active_visitors);
+          if (data && typeof data.active_visitors === 'number') {
+            setVisitorStats({
+              active_visitors: data.active_visitors ?? 0,
+              today_visitors: data.today_visitors ?? 0,
+              total_visitors: data.total_visitors ?? 0,
+            });
           }
         })
         .catch(() => {});
@@ -408,42 +422,113 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6">
-        {/* Thẻ Thống Kê Lượng Khách Tham Quan (User) Đang Dùng Theo Thời Gian Thực */}
-        <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
-          <div className="flex items-center space-x-3.5">
-            <div className="relative flex items-center justify-center w-12 h-12 bg-emerald-100 text-emerald-700 rounded-2xl shadow-inner">
-              <Users size={24} />
-              <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
-              </span>
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Lượng khách tham quan (User) đang dùng
-                </span>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  Thời gian thực (Live)
+        {/* Bộ Thẻ Thống Kê Du Khách (Lượng khách trực tuyến, Hôm nay, Tổng số lượt) */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Card 1: Khách đang trực tuyến (Live) */}
+          <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-white border border-emerald-200/80 rounded-2xl p-4 flex items-center justify-between shadow-sm hover:shadow-md transition">
+            <div className="flex items-center space-x-3.5">
+              <div className="relative flex items-center justify-center w-12 h-12 bg-emerald-100/80 text-emerald-700 rounded-2xl shadow-inner">
+                <Users size={24} />
+                <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Tự động cập nhật mỗi 2 giây dựa trên thiết bị du khách đang trực tuyến
+              <div>
+                <div className="flex items-center space-x-1.5">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Đang trực tuyến
+                  </span>
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    Live
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Thiết bị kết nối 25s qua
+                </p>
+              </div>
+            </div>
+
+            <div className="text-right">
+              <div className="flex items-baseline space-x-1 justify-end">
+                <span className="text-3xl font-black text-emerald-600 font-mono tracking-tight">
+                  {visitorStats.active_visitors}
+                </span>
+                <span className="text-xs font-bold text-slate-500">người</span>
+              </div>
+              <p className="text-[10px] text-emerald-600 font-medium flex items-center justify-end space-x-1 mt-0.5">
+                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
+                <span>Thời gian thực</span>
               </p>
             </div>
           </div>
 
-          <div className="text-right">
-            <div className="flex items-baseline space-x-1.5 justify-end">
-              <span className="text-3xl font-black text-emerald-600 font-mono tracking-tight">
-                {activeVisitors}
-              </span>
-              <span className="text-xs font-bold text-slate-500">người</span>
+          {/* Card 2: Số khách truy cập hôm nay */}
+          <div className="bg-gradient-to-br from-blue-50 via-sky-50 to-white border border-blue-200/80 rounded-2xl p-4 flex items-center justify-between shadow-sm hover:shadow-md transition">
+            <div className="flex items-center space-x-3.5">
+              <div className="flex items-center justify-center w-12 h-12 bg-blue-100/80 text-blue-700 rounded-2xl shadow-inner">
+                <UserCheck size={24} />
+              </div>
+              <div>
+                <div className="flex items-center space-x-1.5">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Số khách hôm nay
+                  </span>
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-100 text-blue-800 border border-blue-300">
+                    Hôm nay
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Lượt khách độc lập trong ngày
+                </p>
+              </div>
             </div>
-            <p className="text-[10px] text-emerald-600 font-medium flex items-center justify-end space-x-1">
-              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
-              <span>Đang kết nối</span>
-            </p>
+
+            <div className="text-right">
+              <div className="flex items-baseline space-x-1 justify-end">
+                <span className="text-3xl font-black text-blue-600 font-mono tracking-tight">
+                  {visitorStats.today_visitors}
+                </span>
+                <span className="text-xs font-bold text-slate-500">người</span>
+              </div>
+              <p className="text-[10px] text-blue-600 font-medium mt-0.5">
+                Giờ Việt Nam (GMT+7)
+              </p>
+            </div>
+          </div>
+
+          {/* Card 3: Tổng số khách đã từng truy cập */}
+          <div className="bg-gradient-to-br from-purple-50 via-indigo-50 to-white border border-purple-200/80 rounded-2xl p-4 flex items-center justify-between shadow-sm hover:shadow-md transition">
+            <div className="flex items-center space-x-3.5">
+              <div className="flex items-center justify-center w-12 h-12 bg-purple-100/80 text-purple-700 rounded-2xl shadow-inner">
+                <TrendingUp size={24} />
+              </div>
+              <div>
+                <div className="flex items-center space-x-1.5">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Tổng số khách
+                  </span>
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-purple-100 text-purple-800 border border-purple-300">
+                    Toàn thời gian
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Tích lũy từ khi vận hành
+                </p>
+              </div>
+            </div>
+
+            <div className="text-right">
+              <div className="flex items-baseline space-x-1 justify-end">
+                <span className="text-3xl font-black text-purple-600 font-mono tracking-tight">
+                  {visitorStats.total_visitors}
+                </span>
+                <span className="text-xs font-bold text-slate-500">người</span>
+              </div>
+              <p className="text-[10px] text-purple-600 font-medium mt-0.5">
+                Tổng khách tích lũy
+              </p>
+            </div>
           </div>
         </div>
 

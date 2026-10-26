@@ -11,7 +11,12 @@ import time
 import sqlite3
 import random
 import string
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+VN_TZ = timezone(timedelta(hours=7))
+
+def get_vn_today_str() -> str:
+    """Lấy ngày hiện tại theo giờ Việt Nam (GMT+7) định dạng YYYY-MM-DD"""
+    return datetime.now(VN_TZ).strftime("%Y-%m-%d")
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Request, Response, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -57,7 +62,7 @@ def get_db():
     return conn
 
 def init_db():
-    """Khởi tạo bảng Users và PaymentSessions theo đúng ERD trong PRD"""
+    """Khởi tạo bảng Users, PaymentSessions và VisitorLogs"""
     with get_db() as conn:
         cursor = conn.cursor()
         # Bảng Users
@@ -85,6 +90,30 @@ def init_db():
                 FOREIGN KEY (user_id) REFERENCES Users(user_id)
             )
         """)
+        # Bảng VisitorLogs theo dõi khách truy cập hôm nay và toàn thời gian
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS VisitorLogs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                client_id TEXT NOT NULL,
+                visit_date TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(client_id, visit_date)
+            )
+        """)
+        # Seed VisitorLogs từ các phiên PaymentSessions có sẵn nếu bảng trống
+        cursor.execute("SELECT count(*) FROM VisitorLogs")
+        if cursor.fetchone()[0] == 0:
+            cursor.execute("""
+                INSERT OR IGNORE INTO VisitorLogs (client_id, visit_date, created_at, last_seen)
+                SELECT 
+                    COALESCE(auth_code, session_id),
+                    date(created_at),
+                    created_at,
+                    created_at
+                FROM PaymentSessions
+            """)
+
         # Seed tài khoản admin nếu chưa có
         cursor.execute("SELECT user_id FROM Users WHERE username = 'admin'")
         if not cursor.fetchone():
@@ -120,7 +149,7 @@ class WebhookRequest(BaseModel):
 
 def generate_jwt_token(subject: str, role: str, session_id: Optional[str] = None) -> str:
     """Sinh access_token JWT có thời hạn"""
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode = {
         "sub": subject,
         "role": role,
@@ -370,7 +399,7 @@ async def list_sessions():
         return {"sessions": rows}
 
 
-# --- Theo dõi Lượng Khách Tham Quan Trực Tuyến Thời Gian Thực (Active Visitors) ---
+# --- Theo dõi Lượng Khách Tham Quan (Active Visitors, Hôm Nay, Tổng Số) ---
 _active_visitors: dict[str, float] = {}
 
 class HeartbeatRequest(BaseModel):
@@ -378,21 +407,63 @@ class HeartbeatRequest(BaseModel):
 
 @app.post("/auth/heartbeat", tags=["Active Visitors"])
 async def tourist_heartbeat(payload: Optional[HeartbeatRequest] = None):
-    """Du khách gửi tín hiệu định kỳ để ghi nhận đang trực tuyến"""
+    """Du khách gửi tín hiệu định kỳ để ghi nhận đang trực tuyến và lưu vào nhật ký truy cập"""
     cid = (payload and payload.client_id) or str(uuid.uuid4())
     now = time.time()
     _active_visitors[cid] = now
     # Dọn dẹp các visitor không gửi tín hiệu quá 25 giây
-    for k in [k for k, v in _active_visitors.items() if now - v > 25]:
+    for k in [k for k, v in list(_active_visitors.items()) if now - v > 25]:
         _active_visitors.pop(k, None)
+
+    # Ghi nhận lượt truy cập vào VisitorLogs
+    today_str = get_vn_today_str()
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO VisitorLogs (client_id, visit_date, last_seen)
+                VALUES (?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(client_id, visit_date) DO UPDATE SET last_seen = CURRENT_TIMESTAMP
+            """, (cid, today_str))
+            conn.commit()
+    except Exception:
+        pass
+
     return {"status": "ok", "active_visitors": len(_active_visitors)}
+
+def get_visitor_metrics() -> dict:
+    now = time.time()
+    for k in [k for k, v in list(_active_visitors.items()) if now - v > 25]:
+        _active_visitors.pop(k, None)
+
+    today_str = get_vn_today_str()
+    today_count = 0
+    total_count = 0
+
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(DISTINCT client_id) FROM VisitorLogs WHERE visit_date = ?", (today_str,))
+            row_today = cursor.fetchone()
+            today_count = row_today[0] if row_today else 0
+
+            cursor.execute("SELECT COUNT(DISTINCT client_id) FROM VisitorLogs")
+            row_total = cursor.fetchone()
+            total_count = row_total[0] if row_total else 0
+    except Exception:
+        pass
+
+    return {
+        "active_visitors": len(_active_visitors),
+        "today_visitors": today_count,
+        "total_visitors": total_count
+    }
 
 @app.get("/auth/active-visitors", tags=["Active Visitors"])
 @app.get("/auth/admin/active-visitors", tags=["Active Visitors"])
+@app.get("/auth/visitor-stats", tags=["Active Visitors"])
+@app.get("/auth/admin/visitor-stats", tags=["Active Visitors"])
 async def get_active_visitors():
-    """Lấy số lượng du khách hiện đang trực tuyến theo thời gian thực"""
-    now = time.time()
-    for k in [k for k, v in _active_visitors.items() if now - v > 25]:
-        _active_visitors.pop(k, None)
-    return {"active_visitors": len(_active_visitors)}
+    """Lấy số lượng du khách hiện đang trực tuyến, hôm nay và tổng lượt từ trước đến nay"""
+    return get_visitor_metrics()
 

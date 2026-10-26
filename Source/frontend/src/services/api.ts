@@ -195,6 +195,12 @@ export async function adminGetMonitoring() {
   return request('/admin/monitoring');
 }
 
+export interface VisitorStats {
+  active_visitors: number;
+  today_visitors: number;
+  total_visitors: number;
+}
+
 export async function sendHeartbeat(clientId: string) {
   return request('/auth/heartbeat', {
     method: 'POST',
@@ -202,7 +208,11 @@ export async function sendHeartbeat(clientId: string) {
   });
 }
 
-export async function getActiveVisitorsCount(): Promise<{ active_visitors: number }> {
+export async function getVisitorStats(): Promise<VisitorStats> {
   return request('/auth/active-visitors');
+}
+
+export async function getActiveVisitorsCount(): Promise<VisitorStats> {
+  return getVisitorStats();
 }
 

@@ -217,3 +217,30 @@ def test_uc04_publish_and_process_when_description_changed():
             break
 
     assert ("Đang xử lý" in status) or ("Hoàn tất" in status)
+
+
+# ===============================================================
+# KIỂM THỬ THỐNG KÊ LƯỢNG KHÁCH TRUY CẬP (ACTIVE, HÔM NAY, TỔNG SỐ)
+# ===============================================================
+
+def test_visitor_heartbeat_and_stats():
+    """Kiểm thử gửi heartbeat và tra cứu số khách online, hôm nay và tổng lượt"""
+    client_id = f"test_vis_{int(time.time())}"
+    heartbeat_res = auth_client.post("/auth/heartbeat", json={"client_id": client_id})
+    assert heartbeat_res.status_code == 200
+    assert heartbeat_res.json()["status"] == "ok"
+    assert heartbeat_res.json()["active_visitors"] >= 1
+
+    stats_res = auth_client.get("/auth/active-visitors")
+    assert stats_res.status_code == 200
+    stats = stats_res.json()
+    assert "active_visitors" in stats
+    assert "today_visitors" in stats
+    assert "total_visitors" in stats
+    assert stats["active_visitors"] >= 1
+    assert stats["today_visitors"] >= 1
+    assert stats["total_visitors"] >= stats["today_visitors"]
+
+    vstats_res = auth_client.get("/auth/visitor-stats")
+    assert vstats_res.status_code == 200
+    assert vstats_res.json()["today_visitors"] == stats["today_visitors"]

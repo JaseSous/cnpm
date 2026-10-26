@@ -61,14 +61,15 @@ export default function App() {
     }
   }, [token]);
 
-  // Gửi tín hiệu trực tuyến (heartbeat) thời gian thực khi khách đang dùng ứng dụng
+  // Gửi tín hiệu trực tuyến (heartbeat) thời gian thực khi khách truy cập ứng dụng
   useEffect(() => {
-    if (!token) return;
+    // Không tính lượt khách khi đang ở màn hình Quản trị viên
+    if (currentPath === '/admin' || currentPath.startsWith('/admin/')) return;
 
-    let clientId = sessionStorage.getItem('visitor_client_id');
+    let clientId = localStorage.getItem('visitor_client_id');
     if (!clientId) {
       clientId = 'vis_' + Math.random().toString(36).substring(2, 9);
-      sessionStorage.setItem('visitor_client_id', clientId);
+      localStorage.setItem('visitor_client_id', clientId);
     }
 
     sendHeartbeat(clientId).catch(() => {});
@@ -77,7 +78,7 @@ export default function App() {
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [token]);
+  }, [currentPath]);
 
   // Nếu người dùng truy cập /admin
   if (currentPath === '/admin' || currentPath.startsWith('/admin/')) {
