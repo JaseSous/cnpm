@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.services import redis_service, qdrant_service
+from app.api import chat_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,6 +39,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(chat_router)
 
 @app.get("/health", tags=["System"])
 @app.get("/api/chatbot/health", tags=["System"])
