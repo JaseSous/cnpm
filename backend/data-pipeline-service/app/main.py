@@ -1,18 +1,122 @@
 import asyncio
+import json
 import logging
+from typing import Optional
+import aio_pika
+from app.config import settings
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
 logger = logging.getLogger("data-pipeline-worker")
 
+class PipelineWorker:
+    def __init__(self):
+        self.connection: Optional[aio_pika.RobustConnection] = None
+        self.channel: Optional[aio_pika.RobustChannel] = None
+        self.exchange: Optional[aio_pika.RobustExchange] = None
+        self.is_running = False
+
+    async def connect_rabbitmq(self):
+        """Kết nối tới RabbitMQ và cấu hình các exchanges và queues"""
+        logger.info(f"Đang kết nối tới RabbitMQ Broker: {settings.AMQP_URL}")
+        self.connection = await aio_pika.connect_robust(
+            settings.AMQP_URL,
+            timeout=5
+        )
+        self.channel = await self.connection.channel()
+        await self.channel.set_qos(prefetch_count=5)
+
+        # 1. Declare Dead-Letter Exchange (DLX) và Queue (DLQ)
+        dlx_exchange = await self.channel.declare_exchange(
+            "poi_dlx",
+            aio_pika.ExchangeType.DIRECT,
+            durable=True
+        )
+        dlq_queue = await self.channel.declare_queue("poi.dlq", durable=True)
+        await dlq_queue.bind(dlx_exchange, routing_key="dlq")
+
+        # 2. Declare Topic Exchange chính
+        self.exchange = await self.channel.declare_exchange(
+            settings.RABBITMQ_EXCHANGE,
+            aio_pika.ExchangeType.TOPIC,
+            durable=True
+        )
+
+        # 3. Declare và bind 3 hàng đợi chính
+        queue_args = {
+            "x-dead-letter-exchange": "poi_dlx",
+            "x-dead-letter-routing-key": "dlq"
+        }
+        self.queue_upserted = await self.channel.declare_queue(
+            "poi.upserted", durable=True, arguments=queue_args
+        )
+        await self.queue_upserted.bind(self.exchange, routing_key="poi.upserted")
+
+        self.queue_deleted = await self.channel.declare_queue(
+            "poi.deleted", durable=True, arguments=queue_args
+        )
+        await self.queue_deleted.bind(self.exchange, routing_key="poi.deleted")
+
+        self.queue_retry = await self.channel.declare_queue(
+            "poi.retry", durable=True, arguments=queue_args
+        )
+        await self.queue_retry.bind(self.exchange, routing_key="poi.retry")
+
+        logger.info("Đã thiết lập thành công 3 hàng đợi: poi.upserted, poi.deleted, poi.retry và DLQ!")
+
+    async def on_message_upserted(self, message: aio_pika.IncomingMessage):
+        """Tiêu thụ tin nhắn poi.upserted"""
+        async with message.process(ignore_processed=True):
+            payload = json.loads(message.body.decode("utf-8"))
+            logger.info(f"Nhận sự kiện poi.upserted: POI #{payload.get('poi_id')} (v{payload.get('revision')})")
+            # Logic xử lý chi tiết ở task tiếp theo
+
+    async def on_message_deleted(self, message: aio_pika.IncomingMessage):
+        """Tiêu thụ tin nhắn poi.deleted"""
+        async with message.process(ignore_processed=True):
+            payload = json.loads(message.body.decode("utf-8"))
+            logger.info(f"Nhận sự kiện poi.deleted: POI #{payload.get('poi_id')}")
+            # Logic xóa audio/vector ở task tiếp theo
+
+    async def on_message_retry(self, message: aio_pika.IncomingMessage):
+        """Tiêu thụ tin nhắn poi.retry"""
+        async with message.process(ignore_processed=True):
+            payload = json.loads(message.body.decode("utf-8"))
+            logger.info(f"Nhận sự kiện poi.retry: POI #{payload.get('poi_id')}")
+            # Logic retry ở task tiếp theo
+
+    async def start(self):
+        """Khởi động worker lắng nghe 3 hàng đợi"""
+        self.is_running = True
+        while self.is_running:
+            try:
+                await self.connect_rabbitmq()
+                await self.queue_upserted.consume(self.on_message_upserted)
+                await self.queue_deleted.consume(self.on_message_deleted)
+                await self.queue_retry.consume(self.on_message_retry)
+                logger.info("Data Pipeline Worker đã sẵn sàng tiêu thụ tin nhắn!")
+                # Giữ loop chạy
+                while self.is_running:
+                    await asyncio.sleep(1)
+            except Exception as e:
+                logger.warning(f"Lỗi kết nối RabbitMQ ({e}). Đang thử kết nối lại sau 5 giây...")
+                await asyncio.sleep(5)
+
+    async def stop(self):
+        self.is_running = False
+        if self.connection and not self.connection.is_closed:
+            await self.connection.close()
+        logger.info("Data Pipeline Worker đã dừng.")
+
+worker = PipelineWorker()
+
 async def main():
-    logger.info("Khởi động Data Pipeline Worker cho Chùa Linh Ứng...")
-    logger.info("Worker đang ở trạng thái chờ kết nối RabbitMQ...")
-    # Giữ loop chạy để container không tắt ngay
-    while True:
-        await asyncio.sleep(3600)
+    try:
+        await worker.start()
+    except (KeyboardInterrupt, SystemExit):
+        await worker.stop()
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
-        logger.info("Dừng Data Pipeline Worker.")
+    asyncio.run(main())
