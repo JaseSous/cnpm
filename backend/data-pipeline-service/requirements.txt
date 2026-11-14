@@ -1,0 +1,13 @@
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+aio-pika>=9.3.0
+deep-translator>=1.11.4
+edge-tts>=6.1.9
+supabase>=2.3.0
+google-genai>=0.1.1
+grpcio>=1.59.0
+grpcio-tools>=1.59.0
+protobuf>=4.25.0
+pydantic-settings>=2.0.0
+pytest>=7.4.0
+pytest-asyncio>=0.21.0

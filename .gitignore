@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+*.spec
+
+# Node
+node_modules/
+dist/
+build/
+.npm/
+
+# Environment variables & secrets
+.env
+.env.local
+.env.*.local
+.env.production
+*.pem
+*.key
+
+# Database files
+*.db
+*.sqlite3
+data/*.db
+data/*.sqlite3
+
+# IDE & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Operating System
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Generated protobuf files (generated during build)
+*_pb2.py
+*_pb2_grpc.py
+*_pb2.pyi
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
