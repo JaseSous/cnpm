@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 class LoginRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50, description="Tên đăng nhập Staff hoặc Admin")
@@ -25,14 +25,13 @@ class CustomerTokenResponse(BaseModel):
     expires_at: datetime
 
 class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     user_id: int
     username: str
     role: str
     is_active: bool
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 class ErrorResponse(BaseModel):
     error_code: str

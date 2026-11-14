@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 class CreateTicketRequest(BaseModel):
     package_id: Optional[int] = Field(None, description="Mã gói vé đã chọn")
@@ -16,11 +16,10 @@ class TicketResponse(BaseModel):
     created_at: datetime
 
 class TicketPackageResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     package_id: int
     package_name: str
     price: float
     description: Optional[str] = None
     is_active: bool
-
-    class Config:
-        from_attributes = True
