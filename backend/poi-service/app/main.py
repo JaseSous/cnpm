@@ -3,12 +3,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import init_db
 from app.routes.pois import router as poi_router
+from app.services.outbox_publisher import outbox_publisher
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Khởi tạo bảng database nếu chưa có
     await init_db()
+    # Khởi động Outbox Publisher background worker
+    outbox_publisher.start()
     yield
+    # Dừng Outbox Publisher worker
+    await outbox_publisher.stop()
 
 app = FastAPI(
     title="Chùa Linh Ứng - Navigation & POI Service",
