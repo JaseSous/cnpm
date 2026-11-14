@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { POI } from '../types';
 import { syncPOIs } from '../services/poiSync';
+import { calculateHaversineDistance, useGPSTracker } from '../services/gpsEngine';
 import { 
   Map as MapIcon, 
   List, 
@@ -12,13 +13,15 @@ import {
   MessageSquare, 
   Globe2, 
   ChevronRight, 
-  AlertTriangle
+  AlertTriangle,
+  Radio,
+  Play,
+  Pause,
+  X
 } from 'lucide-react';
 
-// Tọa độ Chùa Linh Ứng Bãi Bụt Sơn Trà Đà Nẵng
 const TEMPLE_CENTER: [number, number] = [16.1005, 108.2772];
 
-// Tạo Marker Icon phong cách Phật giáo
 const createPoiIcon = (title: string, index: number) => {
   return L.divIcon({
     className: 'poi-custom-marker',
@@ -46,32 +49,17 @@ const createPoiIcon = (title: string, index: number) => {
   });
 };
 
-// Marker vị trí hiện tại của du khách
 const userLocationIcon = L.divIcon({
   className: 'user-location-marker',
   html: `
-    <div style="
-      position: relative;
-      width: 22px;
-      height: 22px;
-    ">
+    <div style="position: relative; width: 22px; height: 22px;">
       <div style="
-        position: absolute;
-        width: 100%;
-        height: 100%;
-        border-radius: 50%;
-        background: rgba(59, 130, 246, 0.4);
-        animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+        position: absolute; width: 100%; height: 100%; border-radius: 50%;
+        background: rgba(59, 130, 246, 0.4); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
       "></div>
       <div style="
-        position: absolute;
-        top: 3px;
-        left: 3px;
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-        background: #2563eb;
-        border: 2.5px solid white;
+        position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+        border-radius: 50%; background: #2563eb; border: 2.5px solid white;
         box-shadow: 0 2px 4px rgba(0,0,0,0.3);
       "></div>
     </div>
@@ -80,7 +68,6 @@ const userLocationIcon = L.divIcon({
   iconAnchor: [11, 11],
 });
 
-// Component điều khiển pan bản đồ tới vị trí
 function MapController({ center }: { center: [number, number] }) {
   const map = useMap();
   useEffect(() => {
@@ -95,28 +82,33 @@ export default function MapAndPOIListPage() {
   const [activeTab, setActiveTab] = useState<'map' | 'list'>('map');
   const [currentLang, setCurrentLang] = useState<string>('vi');
   const [loading, setLoading] = useState<boolean>(true);
-  const [userPos, setUserPos] = useState<[number, number] | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number]>(TEMPLE_CENTER);
+  
+  // Trạng thái GPS và Auto-Audio Trigger
+  const [autoAudioEnabled, setAutoAudioEnabled] = useState<boolean>(true);
+  const [miniPlayerPlaying, setMiniPlayerPlaying] = useState<boolean>(false);
+  const miniAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const {
+    currentCoords,
+    activeTriggeredPoi,
+    setActiveTriggeredPoi,
+  } = useGPSTracker(pois, {
+    autoAudioEnabled,
+    onTriggerPOI: (poi) => {
+      // Khi bước vào vùng POI, tự động phát audio
+      if (miniAudioRef.current && poi.audio_url) {
+        miniAudioRef.current.src = poi.audio_url;
+        miniAudioRef.current.play().catch((e) => console.warn('Autoplay blocked:', e));
+        setMiniPlayerPlaying(true);
+      }
+    },
+  });
 
   useEffect(() => {
     const lang = localStorage.getItem('customer_lang') || 'vi';
     setCurrentLang(lang);
     loadPOIs(lang);
-
-    // Bắt đầu theo dõi GPS của du khách
-    if ('geolocation' in navigator) {
-      const watchId = navigator.geolocation.watchPosition(
-        (pos) => {
-          const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-          setUserPos(coords);
-        },
-        (err) => {
-          console.warn('GPS watchPosition error:', err.message);
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 3000 }
-      );
-      return () => navigator.geolocation.clearWatch(watchId);
-    }
   }, []);
 
   const loadPOIs = async (lang: string) => {
@@ -132,24 +124,46 @@ export default function MapAndPOIListPage() {
   };
 
   const handleLocateMe = () => {
-    if (userPos) {
-      setMapCenter(userPos);
-    } else if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-          setUserPos(coords);
-          setMapCenter(coords);
-        },
-        () => {
-          alert('Vui lòng bật GPS trên thiết bị để định vị chính xác vị trí của bạn.');
-        }
-      );
+    if (currentCoords) {
+      setMapCenter(currentCoords);
+    } else {
+      alert('Đang tìm vị trí GPS của bạn. Vui lòng cấp quyền truy cập vị trí trên trình duyệt.');
+    }
+  };
+
+  // Tính khoảng cách cho từng POI nếu đã có tọa độ GPS
+  const processedPOIs = pois.map((p) => {
+    if (currentCoords) {
+      const dist = calculateHaversineDistance(currentCoords[0], currentCoords[1], p.latitude, p.longitude);
+      return { ...p, distance: dist };
+    }
+    return p;
+  });
+
+  if (currentCoords) {
+    processedPOIs.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+  }
+
+  const toggleMiniPlay = () => {
+    if (!miniAudioRef.current) return;
+    if (miniPlayerPlaying) {
+      miniAudioRef.current.pause();
+      setMiniPlayerPlaying(false);
+    } else {
+      miniAudioRef.current.play().then(() => setMiniPlayerPlaying(true)).catch(() => {});
     }
   };
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-stone-50">
+      {/* Hidden Auto Audio Element */}
+      <audio
+        ref={miniAudioRef}
+        onEnded={() => setMiniPlayerPlaying(false)}
+        onPause={() => setMiniPlayerPlaying(false)}
+        onPlay={() => setMiniPlayerPlaying(true)}
+      />
+
       {/* Top Header */}
       <header className="px-4 py-3 bg-amber-600 text-white flex items-center justify-between shadow-md z-10 shrink-0">
         <div>
@@ -162,6 +176,20 @@ export default function MapAndPOIListPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Toggle Auto Audio GPS */}
+          <button
+            onClick={() => setAutoAudioEnabled(!autoAudioEnabled)}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
+              autoAudioEnabled
+                ? 'bg-amber-100 text-amber-900 shadow-sm'
+                : 'bg-amber-800/60 text-amber-200'
+            }`}
+            title="Thuyết minh GPS tự động"
+          >
+            <Radio className={`w-3.5 h-3.5 ${autoAudioEnabled ? 'text-amber-700 animate-pulse' : ''}`} />
+            <span>GPS {autoAudioEnabled ? 'BẬT' : 'TẮT'}</span>
+          </button>
+
           {/* Nút đổi ngôn ngữ */}
           <button
             onClick={() => navigate('/')}
@@ -230,8 +258,8 @@ export default function MapAndPOIListPage() {
                 <MapController center={mapCenter} />
 
                 {/* Vị trí của du khách */}
-                {userPos && (
-                  <Marker position={userPos} icon={userLocationIcon}>
+                {currentCoords && (
+                  <Marker position={currentCoords} icon={userLocationIcon}>
                     <Popup>
                       <div className="text-xs font-semibold text-stone-800">
                         📍 Vị trí hiện tại của bạn
@@ -278,18 +306,17 @@ export default function MapAndPOIListPage() {
 
             {/* View Danh sách POI */}
             <div className={`flex-1 overflow-y-auto p-4 space-y-3 ${activeTab === 'list' ? 'block' : 'hidden'}`}>
-              {pois.length === 0 ? (
+              {processedPOIs.length === 0 ? (
                 <div className="text-center py-16 text-stone-400 text-sm">
                   Chưa có điểm tham quan nào được cập nhật.
                 </div>
               ) : (
-                pois.map((poi, idx) => (
+                processedPOIs.map((poi, idx) => (
                   <div
                     key={poi.poi_id}
                     onClick={() => navigate(`/poi/${poi.poi_id}`)}
                     className="p-3.5 bg-white rounded-2xl border border-stone-200/80 shadow-sm hover:shadow-md transition-all active:scale-[0.99] flex items-center gap-3.5 cursor-pointer"
                   >
-                    {/* Thumbnail hoặc Số thứ tự */}
                     <div className="relative w-16 h-16 rounded-xl bg-amber-50 border border-amber-200 overflow-hidden shrink-0 flex items-center justify-center">
                       {poi.thumbnail_url ? (
                         <img
@@ -307,12 +334,16 @@ export default function MapAndPOIListPage() {
                       )}
                     </div>
 
-                    {/* Nội dung */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
                           #{idx + 1}
                         </span>
+                        {poi.distance !== undefined && (
+                          <span className="text-[11px] font-medium text-stone-600 bg-stone-100 px-1.5 py-0.5 rounded">
+                            Cách {poi.distance}m
+                          </span>
+                        )}
                         {poi.fallback && (
                           <span className="text-[10px] text-amber-700 bg-amber-100/70 px-1.5 py-0.5 rounded flex items-center gap-0.5">
                             <AlertTriangle className="w-2.5 h-2.5" />
@@ -334,6 +365,45 @@ export default function MapAndPOIListPage() {
               )}
             </div>
           </>
+        )}
+
+        {/* Floating Mini Player khi GPS tự động kích hoạt POI */}
+        {activeTriggeredPoi && (
+          <div className="absolute bottom-4 left-4 right-4 z-[500] p-3.5 rounded-2xl bg-stone-900/95 text-white shadow-2xl backdrop-blur border border-amber-500/30 flex items-center justify-between gap-3 animate-slide-up">
+            <div
+              className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
+              onClick={() => navigate(`/poi/${activeTriggeredPoi.poi_id}`)}
+            >
+              <div className="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0">
+                <Headphones className="w-5 h-5 animate-bounce" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                  TỰ ĐỘNG THUYẾT MINH
+                </div>
+                <div className="text-xs font-semibold truncate text-white">
+                  {activeTriggeredPoi.title}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={toggleMiniPlay}
+                className="p-2 rounded-full bg-amber-600 text-white hover:bg-amber-500 transition-colors"
+                title={miniPlayerPlaying ? 'Tạm dừng' : 'Phát tiếp'}
+              >
+                {miniPlayerPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+              </button>
+              <button
+                onClick={() => setActiveTriggeredPoi(null)}
+                className="p-2 rounded-full hover:bg-stone-800 text-stone-400 hover:text-white transition-colors"
+                title="Đóng thông báo"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>
