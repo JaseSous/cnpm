@@ -11,6 +11,9 @@ from app.grpc_server import grpc_server_manager
 async def lifespan(app: FastAPI):
     # Khởi tạo bảng database nếu chưa có
     await init_db()
+    # Tự động seed dữ liệu mẫu thực tế Chùa Linh Ứng nếu chưa có
+    from app.seed_data import seed_real_pois
+    await seed_real_pois()
     # Khởi động Outbox Publisher background worker
     outbox_publisher.start()
     # Khởi động gRPC Server nội bộ
