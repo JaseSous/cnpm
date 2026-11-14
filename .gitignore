@@ -48,3 +48,7 @@ desktop.ini
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Local data and temp directories
+data/
+backend/**/data/

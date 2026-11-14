@@ -1,12 +1,14 @@
-import React from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
-export const App: React.FC = () => {
+export default function App() {
   return (
-    <div style={{ padding: '2rem', fontFamily: 'sans-serif', textAlign: 'center' }}>
-      <h1>Chùa Linh Ứng - Thuyết Minh Tự Động</h1>
-      <p>Ứng dụng di động dành cho du khách tham quan Chùa Linh Ứng (Đà Nẵng).</p>
-    </div>
-  )
+    <BrowserRouter>
+      <div className="min-h-screen bg-amber-50/40 text-stone-800 font-sans antialiased max-w-md mx-auto shadow-2xl relative flex flex-col">
+        <Routes>
+          <Route path="/" element={<div className="p-4 text-center">Khởi tạo ứng dụng du khách Chùa Linh Ứng</div>} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+    </BrowserRouter>
+  );
 }
-
-export default App
