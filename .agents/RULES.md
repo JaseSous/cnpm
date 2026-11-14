@@ -81,3 +81,25 @@ git config user.email "<Email tác giả>"
    - Dùng JWT (`access_token`) xác thực giữa Client và API Gateway.
    - Giới hạn tốc độ gọi (Rate Limiting) trên API Gateway và Redis Cache.
    - Mã vé `shorted_code` trong Redis Cache có TTL và là thao tác nguyên tử (atomic `GETDEL` hoặc giao dịch Redis), dùng một lần duy nhất.
+
+---
+
+## 5. NGUYÊN TẮC VÀNG #4: HƯỚNG DẪN CHI TIẾT THIẾT LẬP MÔI TRƯỜNG & DỊCH VỤ BÊN NGOÀI
+
+Trong suốt quá trình phát triển dự án, nếu phát sinh nhu cầu cài đặt hoặc cấu hình bất kỳ môi trường hay dịch vụ bên ngoài nào:
+- **AI & External APIs:** Google Gemini API (AI Studio), Text Embedding model (`text-embedding-004`), Text-to-Speech (Edge-TTS), Translation APIs.
+- **Cơ sở dữ liệu & Caching:** Upstash Redis (Logical DB 0 & DB 1), Qdrant Cloud (Vector DB), Supabase Storage / Cloudinary (Object Storage).
+- **Hạ tầng truyền thông:** CloudAMQP / RabbitMQ Message Broker.
+- **Container & Môi trường:** Docker, Dockerfile cho từng Microservice, Docker Compose chạy nội bộ (Local dev environment).
+- **Triển khai & CI/CD:** GitHub Actions Secrets, Render / Fly.io / Koyeb, Vercel Edge Network.
+
+**HÀNH ĐỘNG BẮT BUỘC DÀNH CHO AI AGENT:**
+1. **Hướng dẫn chi tiết từng bước (Step-by-Step Walkthrough):** Tuyệt đối không chỉ đưa ra yêu cầu chung chung mà phải chỉ dẫn rõ ràng cho người dùng:
+   - Đường link truy cập trang quản trị dịch vụ (Console/Dashboard).
+   - Các bước thao tác cụ thể trên giao diện (chọn gói Free Tier, tạo Project, tạo Database/Queue, tạo API Key).
+   - Nơi lấy chuỗi kết nối (`DATABASE_URL`, `REDIS_URL`, `AMQP_URL`, API Key...).
+2. **Cung cấp tệp mẫu cấu hình môi trường (`.env.example`):**
+   - Liệt kê đầy đủ tên biến, mô tả mục đích và cú pháp chuẩn.
+   - Hướng dẫn người dùng cách tạo file `.env` cục bộ và nhắc nhở đưa `.env` vào `.gitignore` để không làm lộ bí mật lên Git.
+3. **Cung cấp lệnh kiểm tra kết nối (Verification Command):**
+   - Luôn viết sẵn script hoặc lệnh CLI ngắn gọn để người dùng chạy thử kiểm tra dịch vụ đã sẵn sàng và kết nối thành công trước khi tiến hành code logic nghiệp vụ.

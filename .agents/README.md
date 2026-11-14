@@ -41,11 +41,14 @@ Mỗi khi nhận nhiệm vụ hoặc triển khai code mới, AI Agent **BẮT B
 ### Bước 2: Xác nhận nếu có thắc mắc
 - Nếu có bất kỳ điều gì ngoài PRD hoặc có sự không rõ ràng, **DỪNG LẠI và hỏi người dùng để được phê duyệt**. Tuyệt đối không tự suy đoán (No hallucination).
 
-### Bước 3: Triển khai mã nguồn
+### Bước 3: Hướng dẫn thiết lập môi trường & dịch vụ bên ngoài (nếu có)
+- Khi cần tích hợp bất kỳ dịch vụ bên ngoài (Google Gemini API, Redis, Vector DB, RabbitMQ, Supabase Storage, Docker, Cloud hosting...), AI Agent **phải hướng dẫn chi tiết từng bước** cho người dùng thực hiện: link đăng ký, thao tác lấy key, file mẫu `.env.example`, và script/lệnh kiểm tra kết nối.
+
+### Bước 4: Triển khai mã nguồn
 - Viết mã nguồn theo đúng kiến trúc microservices trong [ARCHITECTURE.md](file:///c:/Users/Jase%20Sous/Desktop/cnpm/.agents/ARCHITECTURE.md).
 - Đảm bảo mã nguồn bám sát các ràng buộc kỹ thuật (Idempotency, Outbox pattern, JWT auth, Redis TTL atomic operations).
 
-### Bước 4: Commit lên Git theo đúng quy chuẩn
+### Bước 5: Commit lên Git theo đúng quy chuẩn
 1. Luân chuyển tác giả git hợp lý cho 3 thành viên theo hướng dẫn tại [MEMBERS.md](file:///c:/Users/Jase%20Sous/Desktop/cnpm/.agents/MEMBERS.md):
    ```powershell
    git config user.name "<Tên thành viên>"
