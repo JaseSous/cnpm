@@ -1,9 +1,9 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import { apiClient } from '../api/client';
 
 export interface UserInfo {
   user_id: number;
-  username: str;
+  username: string;
   role: 'admin' | 'staff';
 }
 

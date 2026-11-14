@@ -5,7 +5,6 @@ import {
   Plus, 
   Edit2, 
   Trash2, 
-  Upload, 
   AlertCircle, 
   Loader2, 
   Search,

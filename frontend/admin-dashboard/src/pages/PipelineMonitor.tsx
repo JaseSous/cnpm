@@ -8,8 +8,6 @@ import {
   AlertTriangle, 
   Volume2, 
   Database,
-  CheckSquare,
-  Square,
   Loader2,
   AlertCircle
 } from 'lucide-react';
@@ -216,7 +214,6 @@ export const PipelineMonitor: React.FC = () => {
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                     {poi.localizations.map((loc) => {
                       const isSelected = langsSelected.includes(loc.language_code);
-                      const isFailed = loc.status === 'Failed';
 
                       return (
                         <div
@@ -249,7 +246,9 @@ export const PipelineMonitor: React.FC = () => {
                               {loc.status}
                             </span>
                             {loc.audio_url && (
-                              <Volume2 className="w-3.5 h-3.5 text-blue-400" title="Đã có file audio TTS" />
+                              <span title="Đã có file audio TTS">
+                                <Volume2 className="w-3.5 h-3.5 text-blue-400" />
+                              </span>
                             )}
                           </div>
 
