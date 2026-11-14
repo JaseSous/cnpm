@@ -69,9 +69,13 @@ class PipelineWorker:
     async def on_message_upserted(self, message: aio_pika.IncomingMessage):
         """Tiêu thụ tin nhắn poi.upserted"""
         async with message.process(ignore_processed=True):
-            payload = json.loads(message.body.decode("utf-8"))
-            logger.info(f"Nhận sự kiện poi.upserted: POI #{payload.get('poi_id')} (v{payload.get('revision')})")
-            # Logic xử lý chi tiết ở task tiếp theo
+            try:
+                payload = json.loads(message.body.decode("utf-8"))
+                logger.info(f"Nhận sự kiện poi.upserted: POI #{payload.get('poi_id')} (v{payload.get('revision')})")
+                from app.consumers.poi_upserted import process_poi_upserted
+                await process_poi_upserted(payload, channel=self.channel)
+            except Exception as e:
+                logger.error(f"Lỗi khi xử lý tin nhắn poi.upserted: {e}")
 
     async def on_message_deleted(self, message: aio_pika.IncomingMessage):
         """Tiêu thụ tin nhắn poi.deleted"""
@@ -87,9 +91,13 @@ class PipelineWorker:
     async def on_message_retry(self, message: aio_pika.IncomingMessage):
         """Tiêu thụ tin nhắn poi.retry"""
         async with message.process(ignore_processed=True):
-            payload = json.loads(message.body.decode("utf-8"))
-            logger.info(f"Nhận sự kiện poi.retry: POI #{payload.get('poi_id')}")
-            # Logic retry ở task tiếp theo
+            try:
+                payload = json.loads(message.body.decode("utf-8"))
+                logger.info(f"Nhận sự kiện poi.retry: POI #{payload.get('poi_id')} (attempt {payload.get('attempt_count', 0)})")
+                from app.consumers.poi_upserted import process_poi_upserted
+                await process_poi_upserted(payload, channel=self.channel)
+            except Exception as e:
+                logger.error(f"Lỗi khi xử lý tin nhắn poi.retry: {e}")
 
     async def start(self):
         """Khởi động worker lắng nghe 3 hàng đợi"""
