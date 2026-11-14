@@ -1,32 +1,45 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001';
+const AUTH_BASE_URL = import.meta.env.VITE_AUTH_API_URL || 'http://localhost:8001';
+const POI_BASE_URL = import.meta.env.VITE_POI_API_URL || 'http://localhost:8002';
 
 export const apiClient = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: AUTH_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-apiClient.interceptors.request.use((config) => {
-  const token = sessionStorage.getItem('access_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
+export const poiClient = axios.create({
+  baseURL: POI_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
-apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response && error.response.status === 401) {
-      sessionStorage.removeItem('access_token');
-      sessionStorage.removeItem('user_info');
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
-      }
+const attachAuthInterceptor = (instance: any) => {
+  instance.interceptors.request.use((config: any) => {
+    const token = sessionStorage.getItem('access_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
-    return Promise.reject(error);
-  }
-);
+    return config;
+  });
+
+  instance.interceptors.response.use(
+    (response: any) => response,
+    (error: any) => {
+      if (error.response && error.response.status === 401) {
+        sessionStorage.removeItem('access_token');
+        sessionStorage.removeItem('user_info');
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
+      }
+      return Promise.reject(error);
+    }
+  );
+};
+
+attachAuthInterceptor(apiClient);
+attachAuthInterceptor(poiClient);
