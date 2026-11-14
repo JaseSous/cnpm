@@ -97,3 +97,13 @@ async def generate_speech_audio(
     except Exception as e:
         logger.error(f"Không thể tạo audio dự phòng: {e}")
         return False
+
+
+class TTSService:
+    async def generate(self, text: str, language_code: str, output_path: Path) -> bool:
+        return await generate_speech_audio(text, language_code, output_path)
+
+tts_service = TTSService()
+
+async def generate_tts_for_poi(poi_id: int, revision: int, language_code: str, text: str, output_path: Path) -> bool:
+    return await generate_speech_audio(text, language_code, output_path)

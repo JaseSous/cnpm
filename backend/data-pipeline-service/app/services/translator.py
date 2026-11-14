@@ -86,3 +86,25 @@ async def translate_text(
 
     # 3. Fallback an toàn (không để dừng luồng pipeline)
     return f"[{target_lang.upper()}] {text}"
+
+
+async def translate_poi_content(
+    title: str,
+    description: str,
+    target_lang: str,
+    source_lang: str = "vi"
+) -> Dict[str, str]:
+    """Dịch cả title và description sang ngôn ngữ đích"""
+    if target_lang == source_lang:
+        return {
+            "title": title,
+            "description": description
+        }
+    
+    translated_title = await translate_text(title, target_lang=target_lang, source_lang=source_lang)
+    translated_desc = await translate_text(description, target_lang=target_lang, source_lang=source_lang)
+    
+    return {
+        "title": translated_title or title,
+        "description": translated_desc or description
+    }

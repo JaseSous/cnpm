@@ -76,3 +76,20 @@ async def delete_audio_files_for_poi(poi_id: int) -> int:
             logger.warning(f"Lỗi khi xóa file audio trên Supabase ({e})")
 
     return count
+
+
+class StorageService:
+    async def upload(self, file_path: Path, poi_id: int, language_code: str, revision: int) -> str:
+        return await upload_audio_file(file_path, poi_id, language_code, revision)
+        
+    async def delete_poi_audios(self, poi_id: int) -> int:
+        return await delete_audio_files_for_poi(poi_id)
+
+storage_service = StorageService()
+
+def get_audio_storage_url(poi_id: int, language_code: str, revision: int) -> str:
+    filename = f"poi_{poi_id}_{language_code}_rev{revision}.mp3"
+    path_in_bucket = f"audios/{filename}"
+    if settings.SUPABASE_URL and "your-project-id" not in settings.SUPABASE_URL:
+        return f"{settings.SUPABASE_URL}/storage/v1/object/public/{settings.SUPABASE_BUCKET_NAME}/{path_in_bucket}"
+    return f"/media/audios/{filename}"
