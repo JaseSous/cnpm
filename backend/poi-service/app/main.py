@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import init_db
 from app.routes.pois import router as poi_router
 from app.services.outbox_publisher import outbox_publisher
+from app.grpc_server import grpc_server_manager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -11,8 +12,11 @@ async def lifespan(app: FastAPI):
     await init_db()
     # Khởi động Outbox Publisher background worker
     outbox_publisher.start()
+    # Khởi động gRPC Server nội bộ
+    await grpc_server_manager.start()
     yield
-    # Dừng Outbox Publisher worker
+    # Dừng gRPC Server và Outbox Publisher
+    await grpc_server_manager.stop()
     await outbox_publisher.stop()
 
 app = FastAPI(
