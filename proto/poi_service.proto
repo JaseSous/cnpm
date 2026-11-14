@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+package poi;
+
+// Service gRPC nội bộ phục vụ giao tiếp giữa Background Worker (Data Pipeline) và POI Service
+service POIInternalService {
+  // Cập nhật trạng thái bản địa hóa (dịch thuật & audio) của từng ngôn ngữ cho POI
+  rpc UpdateLocalizationStatus(UpdateLocalizationRequest) returns (UpdateLocalizationResponse);
+
+  // Cập nhật trạng thái đồng bộ hóa Vector DB cho POI
+  rpc UpdateVectorStatus(UpdateVectorRequest) returns (UpdateVectorResponse);
+
+  // Ghi nhận cảnh báo lỗi đường ống xử lý dữ liệu vào bảng PipelineAlerts
+  rpc CreatePipelineAlert(CreateAlertRequest) returns (CreateAlertResponse);
+
+  // Kiểm tra tính Idempotency: event_id đã được xử lý thành công trước đó hay chưa
+  rpc CheckProcessedEvent(CheckEventRequest) returns (CheckEventResponse);
+
+  // Đánh dấu event_id đã được xử lý thành công vào bảng ProcessedEvents
+  rpc MarkEventProcessed(MarkEventRequest) returns (MarkEventResponse);
+}
+
+message UpdateLocalizationRequest {
+  string event_id = 1;
+  int32 poi_id = 2;
+  string language_code = 3;
+  string status = 4;                 // "Done" | "Failed" | "Pending"
+  string translated_title = 5;
+  string translated_description = 6;
+  string audio_url = 7;
+  string error_message = 8;
+  int32 applied_revision = 9;
+}
+
+message UpdateLocalizationResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message UpdateVectorRequest {
+  int32 poi_id = 1;
+  string vector_status = 2;          // "Synced" | "Failed" | "Pending"
+  string error_message = 3;
+  int32 attempt_count = 4;
+}
+
+message UpdateVectorResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message CreateAlertRequest {
+  string alert_type = 1;             // "TRANSLATION_FAILED" | "TTS_FAILED" | "VECTOR_SYNC_FAILED" | "DLQ_EXCEEDED"
+  string severity = 2;               // "WARNING" | "CRITICAL" | "INFO"
+  string message = 3;
+  string payload = 4;                // JSON payload chứa thông tin chi tiết
+}
+
+message CreateAlertResponse {
+  bool success = 1;
+  int32 alert_id = 2;
+  string message = 3;
+}
+
+message CheckEventRequest {
+  string event_id = 1;
+}
+
+message CheckEventResponse {
+  bool is_processed = 1;
+}
+
+message MarkEventRequest {
+  string event_id = 1;
+  string event_type = 2;
+  string source_service = 3;
+}
+
+message MarkEventResponse {
+  bool success = 1;
+  string message = 2;
+}

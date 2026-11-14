@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package chatbot;
+
+// Service gRPC nội bộ phục vụ giao tiếp giữa Background Worker (Data Pipeline) và Chatbot AI Service
+service ChatbotInternalService {
+  // Cập nhật hoặc thêm mới các vector chunks của POI vào Vector DB (Qdrant)
+  rpc UpsertVectors(UpsertVectorsRequest) returns (UpsertVectorsResponse);
+
+  // Xóa toàn bộ vector chunks thuộc POI khi POI bị xóa
+  rpc DeleteVectors(DeleteVectorsRequest) returns (DeleteVectorsResponse);
+
+  // Xóa bộ nhớ đệm câu trả lời FAQ Cache trên Redis DB 1 khi POI thay đổi nội dung
+  rpc InvalidateFaqCache(InvalidateCacheRequest) returns (InvalidateCacheResponse);
+}
+
+message VectorChunk {
+  string chunk_id = 1;
+  string chunk_text = 2;
+  repeated float embedding = 3;
+  map<string, string> metadata = 4;
+}
+
+message UpsertVectorsRequest {
+  int32 poi_id = 1;
+  int32 revision = 2;
+  string language_code = 3;
+  repeated VectorChunk chunks = 4;
+}
+
+message UpsertVectorsResponse {
+  bool success = 1;
+  int32 upserted_count = 2;
+  string message = 3;
+}
+
+message DeleteVectorsRequest {
+  int32 poi_id = 1;
+}
+
+message DeleteVectorsResponse {
+  bool success = 1;
+  int32 deleted_count = 2;
+  string message = 3;
+}
+
+message InvalidateCacheRequest {
+  int32 poi_id = 1;
+  string pattern = 2;
+}
+
+message InvalidateCacheResponse {
+  bool success = 1;
+  int32 cleared_keys = 2;
+  string message = 3;
+}
