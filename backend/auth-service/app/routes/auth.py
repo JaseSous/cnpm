@@ -1,11 +1,15 @@
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.database import get_db
-from app.schemas.auth import LoginRequest, TokenResponse, UserResponse
-from app.services.auth_service import login_user
-from app.services.security import get_current_user_payload
-from app.models import User
 from sqlalchemy import select
+from app.database import get_db
+from app.models import User, TicketPackage
+from app.schemas.auth import LoginRequest, TokenResponse, UserResponse
+from app.schemas.ticket import CreateTicketRequest, TicketResponse, TicketPackageResponse
+from app.services.auth_service import login_user
+from app.services.ticket_service import create_cash_ticket
+from app.services.security import get_current_user_payload, require_roles
+from app.services.redis_client import get_redis
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
@@ -13,7 +17,7 @@ router = APIRouter(prefix="/api/auth", tags=["Authentication"])
     "/login",
     response_model=TokenResponse,
     summary="UC07: Đăng nhập Staff / Admin",
-    description="Xác thực thông tin tài khoản và phát hành JWT access token kèm chống tấn công dò mật khẩu qua LoginAttempts."
+    description="Xác thực thông tin tài khoản và phát hành JWT access token kèm chống brute-force qua LoginAttempts."
 )
 async def login(
     login_data: LoginRequest,
@@ -45,3 +49,31 @@ async def get_current_user(
         "is_active": user.is_active,
         "created_at": user.created_at
     }
+
+@router.get(
+    "/packages",
+    response_model=List[TicketPackageResponse],
+    summary="Danh sách các gói vé đang mở bán",
+    description="Lấy danh mục các gói vé để Staff lựa chọn khi phát hành vé cho du khách."
+)
+async def list_packages(
+    db: AsyncSession = Depends(get_db)
+):
+    res = await db.execute(
+        select(TicketPackage).where(TicketPackage.is_active == True)
+    )
+    return res.scalars().all()
+
+@router.post(
+    "/tickets",
+    response_model=TicketResponse,
+    summary="UC08: Bán vé tại quầy (Tạo mã vé tiền mặt)",
+    description="Nhân viên quầy tạo mã vé ngắn 10 ký tự lưu vào Redis DB 0 với TTL 30 phút và phiên thanh toán Pending."
+)
+async def create_ticket(
+    ticket_data: CreateTicketRequest,
+    db: AsyncSession = Depends(get_db),
+    redis_client = Depends(get_redis),
+    current_user_payload: dict = Depends(require_roles(["staff", "admin"]))
+):
+    return await create_cash_ticket(db, redis_client, ticket_data, current_user_payload)

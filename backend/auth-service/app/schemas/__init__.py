@@ -6,6 +6,11 @@ from app.schemas.auth import (
     UserResponse,
     ErrorResponse
 )
+from app.schemas.ticket import (
+    CreateTicketRequest,
+    TicketResponse,
+    TicketPackageResponse
+)
 
 __all__ = [
     "LoginRequest",
@@ -13,5 +18,8 @@ __all__ = [
     "VerifyCodeRequest",
     "CustomerTokenResponse",
     "UserResponse",
-    "ErrorResponse"
+    "ErrorResponse",
+    "CreateTicketRequest",
+    "TicketResponse",
+    "TicketPackageResponse"
 ]
