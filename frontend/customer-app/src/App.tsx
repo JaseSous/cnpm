@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LanguageSelectPage from './pages/LanguageSelectPage';
+import QRAuthPage from './pages/QRAuthPage';
 
 export default function App() {
   return (
@@ -7,6 +8,7 @@ export default function App() {
       <div className="min-h-screen bg-amber-50/40 text-stone-800 font-sans antialiased max-w-md mx-auto shadow-2xl relative flex flex-col">
         <Routes>
           <Route path="/" element={<LanguageSelectPage />} />
+          <Route path="/auth" element={<QRAuthPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
