@@ -3,7 +3,7 @@ from typing import Optional
 
 class Settings(BaseSettings):
     # JWT Auth
-    JWT_SECRET_KEY: str = "your-super-secret-key-change-this"
+    JWT_SECRET_KEY: str = "change-this-to-a-super-secret-random-key-in-production"
     JWT_ALGORITHM: str = "HS256"
 
     # Redis Cache (DB 1 cho Chatbot FAQ & Rate Limit)

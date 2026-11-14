@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     CHATBOT_SERVICE_URL: str = "http://localhost:8003"
 
     # JWT Authentication
-    JWT_SECRET_KEY: str = "your-super-secret-key-change-this"
+    JWT_SECRET_KEY: str = "change-this-to-a-super-secret-random-key-in-production"
     JWT_ALGORITHM: str = "HS256"
 
     # Redis Rate Limiting (DB 0 cho Gateway & Auth)

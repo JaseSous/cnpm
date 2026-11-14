@@ -58,11 +58,43 @@ SAMPLE_REAL_POIS = [
     }
 ]
 
+SUPPORTED_LANGUAGES_INIT = [
+    {"code": "vi", "name": "Vietnamese", "native": "Tiếng Việt", "fallback": True, "tts": True},
+    {"code": "en", "name": "English", "native": "English", "fallback": False, "tts": True},
+    {"code": "zh", "name": "Chinese", "native": "中文 (简体)", "fallback": False, "tts": True},
+    {"code": "ja", "name": "Japanese", "native": "日本語", "fallback": False, "tts": True},
+    {"code": "ko", "name": "Korean", "native": "한국어", "fallback": False, "tts": True},
+    {"code": "fr", "name": "French", "native": "Français", "fallback": False, "tts": True},
+    {"code": "de", "name": "German", "native": "Deutsch", "fallback": False, "tts": True},
+    {"code": "es", "name": "Spanish", "native": "Español", "fallback": False, "tts": True},
+    {"code": "th", "name": "Thai", "native": "ไทย", "fallback": False, "tts": True},
+    {"code": "ru", "name": "Russian", "native": "Русский", "fallback": False, "tts": True},
+    {"code": "pt", "name": "Portuguese", "native": "Português", "fallback": False, "tts": True},
+    {"code": "it", "name": "Italian", "native": "Italiano", "fallback": False, "tts": True},
+    {"code": "id", "name": "Indonesian", "native": "Bahasa Indonesia", "fallback": False, "tts": True},
+    {"code": "ar", "name": "Arabic", "native": "العربية", "fallback": False, "tts": True},
+    {"code": "hi", "name": "Hindi", "native": "हिन्दी", "fallback": False, "tts": True},
+]
+
 async def seed_real_pois() -> int:
     """Nạp dữ liệu thực tế 6 điểm tham quan nổi bật của Chùa Linh Ứng"""
     await init_db()
 
     async with AsyncSessionLocal() as session:
+        # 1. Đảm bảo Supported Languages tồn tại
+        langs_check = await session.execute(select(SupportedLanguage))
+        if not langs_check.scalars().first():
+            for lang in SUPPORTED_LANGUAGES_INIT:
+                session.add(SupportedLanguage(
+                    language_code=lang["code"],
+                    language_name=lang["name"],
+                    native_name=lang["native"],
+                    is_fallback=lang["fallback"],
+                    tts_supported=lang["tts"],
+                    is_active=True
+                ))
+            await session.commit()
+
         # Kiểm tra xem đã có POI nào chưa
         existing = await session.execute(select(POI))
         if existing.scalars().first():
