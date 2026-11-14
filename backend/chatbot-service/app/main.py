@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.services import redis_service, qdrant_service
 from app.api import chat_router
+from app.grpc_server import chatbot_grpc_server_manager
 
 logging.basicConfig(
     level=logging.INFO,
@@ -19,9 +20,11 @@ async def lifespan(app: FastAPI):
     logger.info("Chatbot AI Service đang khởi động...")
     await redis_service.connect()
     qdrant_service.ensure_collection_exists()
+    await chatbot_grpc_server_manager.start()
     yield
     # Tắt kết nối
     logger.info("Chatbot AI Service đang tắt...")
+    await chatbot_grpc_server_manager.stop()
     await redis_service.disconnect()
 
 app = FastAPI(
