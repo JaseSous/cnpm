@@ -5,8 +5,19 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models import POI
-from app.schemas.poi import CreatePOIRequest, UpdatePOIRequest, POIResponse
-from app.services.poi_service import create_poi, update_poi, delete_poi
+from app.schemas.poi import (
+    CreatePOIRequest, 
+    UpdatePOIRequest, 
+    POIResponse, 
+    RetryPipelineRequest
+)
+from app.services.poi_service import (
+    create_poi, 
+    update_poi, 
+    delete_poi, 
+    get_pipeline_status_overview, 
+    retry_pipeline_for_poi
+)
 from app.services.storage import upload_thumbnail
 from app.services.security import require_roles, get_current_user_payload
 
@@ -25,6 +36,31 @@ async def create_new_poi(
     admin_payload: dict = Depends(require_roles(["admin"]))
 ):
     return await create_poi(db, request_data)
+
+@router.get(
+    "/pipeline-status",
+    summary="UC11: Admin giám sát trạng thái Pipeline dịch thuật và TTS",
+    description="Xem tiến độ xử lý của từng ngôn ngữ cho từng POI, trạng thái vector và danh sách cảnh báo lỗi chưa giải quyết."
+)
+async def get_pipeline_status(
+    db: AsyncSession = Depends(get_db),
+    admin_payload: dict = Depends(require_roles(["admin"]))
+):
+    return await get_pipeline_status_overview(db)
+
+@router.post(
+    "/{poi_id}/retry",
+    summary="UC11: Admin kích hoạt Retry xử lý lại ngôn ngữ bị lỗi",
+    description="Đặt lại trạng thái các ngôn ngữ chọn sang Pending và ghi sự kiện poi.retry vào OutboxEvents."
+)
+async def retry_pipeline(
+    poi_id: int,
+    retry_data: RetryPipelineRequest,
+    db: AsyncSession = Depends(get_db),
+    admin_payload: dict = Depends(require_roles(["admin"]))
+):
+    user_id = admin_payload.get("user_id")
+    return await retry_pipeline_for_poi(db, poi_id, retry_data, admin_user_id=user_id)
 
 @router.put(
     "/{poi_id}",

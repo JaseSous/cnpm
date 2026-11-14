@@ -14,7 +14,7 @@ from app.models import (
     OutboxEvent, 
     PipelineAlert
 )
-from app.schemas.poi import CreatePOIRequest, UpdatePOIRequest
+from app.schemas.poi import CreatePOIRequest, UpdatePOIRequest, RetryPipelineRequest
 
 async def increment_data_version(db: AsyncSession) -> int:
     """Tăng số phiên bản dữ liệu toàn cục poi_data_version trong SystemMetadata"""
@@ -136,7 +136,6 @@ async def update_poi(db: AsyncSession, poi_id: int, request_data: UpdatePOIReque
     now = datetime.utcnow()
     content_changed = False
 
-    # Kiểm tra thay đổi nội dung (tiêu đề, mô tả hoặc ngôn ngữ gốc) -> Cần tăng revision và re-trigger pipeline
     if request_data.original_title and request_data.original_title.strip() != poi.original_title:
         poi.original_title = request_data.original_title.strip()
         content_changed = True
@@ -149,7 +148,6 @@ async def update_poi(db: AsyncSession, poi_id: int, request_data: UpdatePOIReque
         poi.original_language_code = request_data.original_language_code
         content_changed = True
 
-    # Cập nhật thông tin địa lý / hình ảnh
     if request_data.latitude is not None:
         poi.latitude = request_data.latitude
     if request_data.longitude is not None:
@@ -166,7 +164,6 @@ async def update_poi(db: AsyncSession, poi_id: int, request_data: UpdatePOIReque
         poi.vector_status = "Pending"
         poi.vector_last_error = None
 
-        # Reset các bản địa hóa sang Pending (trừ bản địa hóa ngôn ngữ gốc là Done)
         all_langs_res = await db.execute(
             select(SupportedLanguage).where(SupportedLanguage.is_active == True)
         )
@@ -184,7 +181,6 @@ async def update_poi(db: AsyncSession, poi_id: int, request_data: UpdatePOIReque
                 loc.last_error = None
             loc.updated_at = now
 
-        # Ghi sự kiện vào OutboxEvents
         event_payload = {
             "poi_id": poi.poi_id,
             "revision": poi.revision,
@@ -209,7 +205,6 @@ async def update_poi(db: AsyncSession, poi_id: int, request_data: UpdatePOIReque
         )
         db.add(outbox_event)
 
-    # Tăng data_version để Client cập nhật
     await increment_data_version(db)
     await db.commit()
 
@@ -229,14 +224,13 @@ async def delete_poi(db: AsyncSession, poi_id: int) -> Dict[str, Any]:
 
     now = datetime.utcnow()
 
-    # Ghi sự kiện poi.deleted vào OutboxEvents trước khi xóa POI
     event_payload = {
         "poi_id": poi.poi_id,
         "revision": poi.revision
     }
     outbox_event = OutboxEvent(
         event_id=str(uuid.uuid4()),
-        poi_id=None,  # Không FK để tránh lỗi khi POI bị xóa
+        poi_id=None,
         event_type="poi.deleted",
         revision=poi.revision,
         payload_json=json.dumps(event_payload, ensure_ascii=False),
@@ -245,9 +239,124 @@ async def delete_poi(db: AsyncSession, poi_id: int) -> Dict[str, Any]:
     )
     db.add(outbox_event)
 
-    # Xóa POI (cascade xóa POILocalizations, PipelineAlerts)
     await db.delete(poi)
     await increment_data_version(db)
     await db.commit()
 
     return {"success": True, "message": f"Đã xóa điểm tham quan {poi_id} thành công"}
+
+async def get_pipeline_status_overview(db: AsyncSession) -> List[Dict[str, Any]]:
+    """
+    UC11: Lấy danh sách điểm tham quan kèm chi tiết tiến độ xử lý bản dịch, audio, vector và cảnh báo lỗi
+    """
+    res = await db.execute(
+        select(POI)
+        .options(
+            selectinload(POI.localizations),
+            selectinload(POI.alerts)
+        )
+        .order_by(POI.poi_id)
+    )
+    pois = res.scalars().all()
+
+    overview = []
+    for p in pois:
+        overview.append({
+            "poi_id": p.poi_id,
+            "original_title": p.original_title,
+            "original_language_code": p.original_language_code,
+            "revision": p.revision,
+            "vector_status": p.vector_status,
+            "vector_last_error": p.vector_last_error,
+            "vector_attempt_count": p.vector_attempt_count,
+            "localizations": [
+                {
+                    "language_code": loc.language_code,
+                    "status": loc.status,
+                    "applied_revision": loc.applied_revision,
+                    "audio_url": loc.audio_url,
+                    "last_error": loc.last_error,
+                    "attempt_count": loc.attempt_count
+                }
+                for loc in p.localizations
+            ],
+            "unresolved_alerts": [
+                {
+                    "alert_id": a.alert_id,
+                    "language_code": a.language_code,
+                    "alert_type": a.alert_type,
+                    "error_message": a.error_message,
+                    "created_at": a.created_at
+                }
+                for a in p.alerts if not a.is_resolved
+            ]
+        })
+    return overview
+
+async def retry_pipeline_for_poi(
+    db: AsyncSession, 
+    poi_id: int, 
+    retry_req: RetryPipelineRequest, 
+    admin_user_id: Optional[int] = None
+) -> Dict[str, Any]:
+    """
+    UC11: Admin kích hoạt Retry xử lý lại các ngôn ngữ hoặc Vector DB bị lỗi
+    """
+    res = await db.execute(
+        select(POI).options(selectinload(POI.localizations)).where(POI.poi_id == poi_id)
+    )
+    poi = res.scalars().first()
+    if not poi:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error_code": "POI_NOT_FOUND", "message": f"Không tìm thấy POI {poi_id}"}
+        )
+
+    now = datetime.utcnow()
+    languages_to_retry = []
+
+    # Reset trạng thái các ngôn ngữ được chọn sang Pending
+    if retry_req.language_codes:
+        for loc in poi.localizations:
+            if loc.language_code in retry_req.language_codes:
+                loc.status = "Pending"
+                loc.last_error = None
+                loc.updated_at = now
+                languages_to_retry.append(loc.language_code)
+
+    if retry_req.retry_vector:
+        poi.vector_status = "Pending"
+        poi.vector_last_error = None
+        poi.updated_at = now
+
+    # Ghi sự kiện poi.retry vào OutboxEvents
+    event_payload = {
+        "poi_id": poi.poi_id,
+        "revision": poi.revision,
+        "original_language_code": poi.original_language_code,
+        "original_title": poi.original_title,
+        "original_description": poi.original_description,
+        "languages_to_process": languages_to_retry,
+        "retry_vector": retry_req.retry_vector,
+        "triggered_by_user_id": admin_user_id
+    }
+
+    outbox_event = OutboxEvent(
+        event_id=str(uuid.uuid4()),
+        poi_id=poi.poi_id,
+        event_type="poi.retry",
+        revision=poi.revision,
+        payload_json=json.dumps(event_payload, ensure_ascii=False),
+        is_published=False,
+        created_at=now
+    )
+    db.add(outbox_event)
+    await db.commit()
+
+    return {
+        "success": True,
+        "message": "Đã ghi nhận yêu cầu thử lại và đẩy sự kiện poi.retry vào Outbox.",
+        "poi_id": poi.poi_id,
+        "retried_languages": languages_to_retry,
+        "retry_vector": retry_req.retry_vector
+    }
