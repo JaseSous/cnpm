@@ -17,6 +17,7 @@ Thư mục `.agents/` này được thiết lập nhằm cung cấp toàn diện
 ├── PROJECT_CONTEXT.md             # Tóm tắt bối cảnh Chùa Linh Ứng, mục tiêu, giải pháp và 12 Use Cases
 ├── DATABASE_SCHEMA.md             # Đặc tả chi tiết 100% các Database, bảng, cột, khóa theo đúng ERD
 ├── ARCHITECTURE.md                # Thiết kế kiến trúc Microservices, Gateway, Web Apps, MQ, CI/CD
+├── IMPLEMENTATION_PLAN.md         # Bản kế hoạch thực hiện chi tiết 8 Phase (ĐÃ DUYỆT)
 ├── PRD.md                         # Toàn văn tài liệu PRD định dạng Markdown (đầy đủ 12 Use Cases)
 ├── Product Requirements Document (PRD).docx  # Bản gốc tài liệu PRD dạng Word
 └── diagrams/                      # Thư mục chứa toàn bộ 36 lược đồ/sơ đồ trích xuất từ PRD
@@ -37,6 +38,7 @@ Mỗi khi nhận nhiệm vụ hoặc triển khai code mới, AI Agent **BẮT B
 ### Bước 1: Đọc và nắm vững yêu cầu
 1. Đọc [PROJECT_CONTEXT.md](file:///c:/Users/Jase%20Sous/Desktop/cnpm/.agents/PROJECT_CONTEXT.md) và Use Case liên quan trong [PRD.md](file:///c:/Users/Jase%20Sous/Desktop/cnpm/.agents/PRD.md).
 2. Tra cứu cấu trúc dữ liệu chính xác tại [DATABASE_SCHEMA.md](file:///c:/Users/Jase%20Sous/Desktop/cnpm/.agents/DATABASE_SCHEMA.md). **Không tự ý thêm bớt cột hay đổi kiểu dữ liệu.**
+3. Bám sát kế hoạch triển khai chi tiết từng Phase tại [IMPLEMENTATION_PLAN.md](file:///c:/Users/Jase%20Sous/Desktop/cnpm/.agents/IMPLEMENTATION_PLAN.md).
 
 ### Bước 2: Xác nhận nếu có thắc mắc
 - Nếu có bất kỳ điều gì ngoài PRD hoặc có sự không rõ ràng, **DỪNG LẠI và hỏi người dùng để được phê duyệt**. Tuyệt đối không tự suy đoán (No hallucination).
