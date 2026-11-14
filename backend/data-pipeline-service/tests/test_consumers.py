@@ -26,6 +26,13 @@ async def test_guard_valid_proceed(mock_poi_grpc):
     assert reason == "PROCEED"
 
 @pytest.mark.asyncio
+async def test_guard_outdated_revision(mock_poi_grpc):
+    mock_poi_grpc.check_processed_event.return_value = False
+    ok, reason = await check_idempotency_and_revision("evt_126", 1, 1, client=mock_poi_grpc, current_revision=2)
+    assert ok is False
+    assert reason == "OUTDATED_REVISION"
+
+@pytest.mark.asyncio
 async def test_handle_poi_deleted_missing_id():
     res = await handle_poi_deleted({})
     assert res is False

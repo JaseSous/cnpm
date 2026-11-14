@@ -48,7 +48,10 @@ async def process_poi_upserted(
         return False
 
     # 1. Guard check
-    can_proceed, reason = await check_idempotency_and_revision(event_id, poi_id, revision)
+    current_revision = payload.get("current_revision") or payload.get("applied_revision")
+    can_proceed, reason = await check_idempotency_and_revision(
+        event_id, poi_id, revision, current_revision=current_revision
+    )
     if not can_proceed:
         logger.info(f"Bỏ qua xử lý POI #{poi_id} rev {revision} do: {reason}")
         return True
