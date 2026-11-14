@@ -76,9 +76,13 @@ class PipelineWorker:
     async def on_message_deleted(self, message: aio_pika.IncomingMessage):
         """Tiêu thụ tin nhắn poi.deleted"""
         async with message.process(ignore_processed=True):
-            payload = json.loads(message.body.decode("utf-8"))
-            logger.info(f"Nhận sự kiện poi.deleted: POI #{payload.get('poi_id')}")
-            # Logic xóa audio/vector ở task tiếp theo
+            try:
+                payload = json.loads(message.body.decode("utf-8"))
+                logger.info(f"Nhận sự kiện poi.deleted: POI #{payload.get('poi_id')}")
+                from app.consumers.poi_deleted import handle_poi_deleted
+                await handle_poi_deleted(payload)
+            except Exception as e:
+                logger.error(f"Lỗi khi xử lý poi.deleted: {e}")
 
     async def on_message_retry(self, message: aio_pika.IncomingMessage):
         """Tiêu thụ tin nhắn poi.retry"""
