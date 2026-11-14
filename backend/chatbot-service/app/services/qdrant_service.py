@@ -27,23 +27,24 @@ class QdrantService:
                 self.client = QdrantClient(
                     url=settings.QDRANT_URL,
                     api_key=settings.QDRANT_API_KEY,
-                    timeout=5
+                    timeout=5,
+                    check_compatibility=False
                 )
                 logger.info(f"Đã kết nối Qdrant Cloud: {settings.QDRANT_URL}")
             except Exception as e:
                 logger.warning(f"Không thể kết nối tới Qdrant Cloud ({e}). Fallback :memory:")
-                self.client = QdrantClient(":memory:")
+                self.client = QdrantClient(":memory:", check_compatibility=False)
         else:
             # Local dev hoặc test
             try:
                 # Thử kết nối URL local
-                test_client = QdrantClient(url=settings.QDRANT_URL, timeout=1)
+                test_client = QdrantClient(url=settings.QDRANT_URL, timeout=1, check_compatibility=False)
                 test_client.get_collections()
                 self.client = test_client
                 logger.info("Kết nối Qdrant Local thành công")
             except Exception:
                 logger.info("Sử dụng In-memory Qdrant Client (offline mode)")
-                self.client = QdrantClient(":memory:")
+                self.client = QdrantClient(":memory:", check_compatibility=False)
 
     def ensure_collection_exists(self):
         """Đảm bảo Collection poi_embeddings tồn tại với kích thước vector 768 chiều"""
