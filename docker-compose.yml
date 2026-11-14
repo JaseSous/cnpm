@@ -1,0 +1,86 @@
+version: "3.9"
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: linhung-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: linhung-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    restart: unless-stopped
+
+  auth-service:
+    build: ./backend/auth-service
+    container_name: linhung-auth-service
+    ports:
+      - "8001:8001"
+    volumes:
+      - auth-data:/app/data
+    env_file: .env
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  poi-service:
+    build: ./backend/poi-service
+    container_name: linhung-poi-service
+    ports:
+      - "8002:8002"
+      - "50051:50051"
+    volumes:
+      - poi-data:/app/data
+    env_file: .env
+    depends_on:
+      - redis
+      - rabbitmq
+    restart: unless-stopped
+
+  chatbot-service:
+    build: ./backend/chatbot-service
+    container_name: linhung-chatbot-service
+    ports:
+      - "8003:8003"
+      - "50052:50052"
+    env_file: .env
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  data-pipeline:
+    build: ./backend/data-pipeline-service
+    container_name: linhung-data-pipeline
+    env_file: .env
+    depends_on:
+      - rabbitmq
+      - poi-service
+      - chatbot-service
+    restart: on-failure
+
+  api-gateway:
+    build: ./backend/api-gateway
+    container_name: linhung-api-gateway
+    ports:
+      - "8000:8000"
+    env_file: .env
+    depends_on:
+      - auth-service
+      - poi-service
+      - chatbot-service
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  auth-data:
+  poi-data:
