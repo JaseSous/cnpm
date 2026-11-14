@@ -1,13 +1,19 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
 from app.models import User, TicketPackage
-from app.schemas.auth import LoginRequest, TokenResponse, UserResponse
+from app.schemas.auth import (
+    LoginRequest,
+    TokenResponse,
+    UserResponse,
+    VerifyCodeRequest,
+    CustomerTokenResponse
+)
 from app.schemas.ticket import CreateTicketRequest, TicketResponse, TicketPackageResponse
 from app.services.auth_service import login_user
-from app.services.ticket_service import create_cash_ticket
+from app.services.ticket_service import create_cash_ticket, verify_and_activate_ticket
 from app.services.security import get_current_user_payload, require_roles
 from app.services.redis_client import get_redis
 
@@ -77,3 +83,26 @@ async def create_ticket(
     current_user_payload: dict = Depends(require_roles(["staff", "admin"]))
 ):
     return await create_cash_ticket(db, redis_client, ticket_data, current_user_payload)
+
+@router.post(
+    "/verify-code",
+    response_model=CustomerTokenResponse,
+    summary="UC01: Du khách đổi mã vé lấy JWT Token",
+    description="Kiểm tra mã vé 10 ký tự, thực hiện xóa nguyên tử GETDEL trên Redis DB 0 và cấp JWT access_token cho du khách."
+)
+async def verify_code(
+    body: VerifyCodeRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    redis_client = Depends(get_redis)
+):
+    # Trích xuất địa chỉ IP của Client (hỗ trợ X-Forwarded-For nếu qua proxy)
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        client_ip = forwarded_for.split(",")[0].strip()
+    elif request.client:
+        client_ip = request.client.host
+    else:
+        client_ip = "127.0.0.1"
+
+    return await verify_and_activate_ticket(db, redis_client, body.shorted_code, client_ip)
