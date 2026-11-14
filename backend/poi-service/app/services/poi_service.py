@@ -1,11 +1,11 @@
 import json
 import uuid
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete
 from sqlalchemy.orm import selectinload
-from fastapi import HTTPException, status
+from fastapi import HTTPException, Response, status
 from app.models import (
     POI, 
     POILocalization, 
@@ -14,7 +14,13 @@ from app.models import (
     OutboxEvent, 
     PipelineAlert
 )
-from app.schemas.poi import CreatePOIRequest, UpdatePOIRequest, RetryPipelineRequest
+from app.schemas.poi import (
+    CreatePOIRequest, 
+    UpdatePOIRequest, 
+    RetryPipelineRequest,
+    CustomerPOIItem,
+    CustomerPOIListResponse
+)
 
 async def increment_data_version(db: AsyncSession) -> int:
     """Tăng số phiên bản dữ liệu toàn cục poi_data_version trong SystemMetadata"""
@@ -33,6 +39,14 @@ async def increment_data_version(db: AsyncSession) -> int:
         meta.updated_at = now
         await db.flush()
         return meta.data_version
+
+async def get_current_data_version(db: AsyncSession) -> int:
+    """Lấy số phiên bản dữ liệu toàn cục hiện tại"""
+    res = await db.execute(
+        select(SystemMetadata).where(SystemMetadata.config_key == "poi_data_version")
+    )
+    meta = res.scalars().first()
+    return meta.data_version if meta else 1
 
 async def create_poi(db: AsyncSession, request_data: CreatePOIRequest) -> POI:
     """
@@ -121,7 +135,7 @@ async def create_poi(db: AsyncSession, request_data: CreatePOIRequest) -> POI:
 
 async def update_poi(db: AsyncSession, poi_id: int, request_data: UpdatePOIRequest) -> POI:
     """
-    UC10: Admin chỉnh sửa thông tin điểm tham quan (phân biệt sửa nội dung bài thuyết minh vs sửa tọa độ)
+    UC10: Admin chỉnh sửa thông tin điểm tham quan
     """
     res = await db.execute(
         select(POI).options(selectinload(POI.localizations)).where(POI.poi_id == poi_id)
@@ -245,6 +259,97 @@ async def delete_poi(db: AsyncSession, poi_id: int) -> Dict[str, Any]:
 
     return {"success": True, "message": f"Đã xóa điểm tham quan {poi_id} thành công"}
 
+async def get_customer_pois(
+    db: AsyncSession, 
+    lang: str = "vi", 
+    since_version: Optional[int] = None
+) -> Tuple[Optional[CustomerPOIListResponse], bool]:
+    """
+    UC02: Du khách lấy danh sách POIs theo ngôn ngữ yêu cầu.
+    Hỗ trợ cơ chế kiểm tra since_version trả về 304 Not Modified và Fallback language.
+    Trả về: (data, is_304)
+    """
+    current_data_version = await get_current_data_version(db)
+
+    # 1. So sánh since_version -> nếu trùng phiên bản thì trả 304 Not Modified
+    if since_version is not None and since_version == current_data_version:
+        return None, True
+
+    # 2. Kiểm tra ngôn ngữ yêu cầu có hợp lệ không
+    lang_res = await db.execute(
+        select(SupportedLanguage).where(
+            SupportedLanguage.language_code == lang,
+            SupportedLanguage.is_active == True
+        )
+    )
+    req_lang = lang_res.scalars().first()
+    if not req_lang:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error_code": "UNSUPPORTED_LANGUAGE", "message": f"Ngôn ngữ '{lang}' không được hỗ trợ"}
+        )
+
+    # Tìm mã ngôn ngữ fallback (mặc định 'vi')
+    fallback_res = await db.execute(
+        select(SupportedLanguage).where(
+            SupportedLanguage.is_fallback == True,
+            SupportedLanguage.is_active == True
+        )
+    )
+    fallback_lang = fallback_res.scalars().first()
+    fallback_code = fallback_lang.language_code if fallback_lang else "vi"
+
+    # 3. Lấy tất cả POIs kèm localizations
+    pois_res = await db.execute(
+        select(POI).options(selectinload(POI.localizations)).order_by(POI.poi_id)
+    )
+    pois = pois_res.scalars().all()
+
+    result_items: List[CustomerPOIItem] = []
+
+    for p in pois:
+        # Tìm bản dịch của ngôn ngữ yêu cầu với status = 'Done'
+        target_loc = next((l for l in p.localizations if l.language_code == lang and l.status == "Done"), None)
+
+        if target_loc:
+            result_items.append(
+                CustomerPOIItem(
+                    poi_id=p.poi_id,
+                    title=target_loc.translated_title or p.original_title,
+                    description=target_loc.translated_description or p.original_description,
+                    latitude=p.latitude,
+                    longitude=p.longitude,
+                    trigger_radius=p.trigger_radius,
+                    thumbnail_url=p.thumbnail_url,
+                    audio_url=target_loc.audio_url,
+                    language_code=lang,
+                    fallback=False
+                )
+            )
+        else:
+            # Fallback sang ngôn ngữ mặc định (ví dụ tiếng Việt 'vi')
+            fallback_loc = next((l for l in p.localizations if l.language_code == fallback_code and l.status == "Done"), None)
+            result_items.append(
+                CustomerPOIItem(
+                    poi_id=p.poi_id,
+                    title=fallback_loc.translated_title if fallback_loc and fallback_loc.translated_title else p.original_title,
+                    description=fallback_loc.translated_description if fallback_loc and fallback_loc.translated_description else p.original_description,
+                    latitude=p.latitude,
+                    longitude=p.longitude,
+                    trigger_radius=p.trigger_radius,
+                    thumbnail_url=p.thumbnail_url,
+                    audio_url=fallback_loc.audio_url if fallback_loc else None,
+                    language_code=fallback_code,
+                    fallback=True
+                )
+            )
+
+    response_payload = CustomerPOIListResponse(
+        pois=result_items,
+        data_version=current_data_version
+    )
+    return response_payload, False
+
 async def get_pipeline_status_overview(db: AsyncSession) -> List[Dict[str, Any]]:
     """
     UC11: Lấy danh sách điểm tham quan kèm chi tiết tiến độ xử lý bản dịch, audio, vector và cảnh báo lỗi
@@ -315,7 +420,6 @@ async def retry_pipeline_for_poi(
     now = datetime.utcnow()
     languages_to_retry = []
 
-    # Reset trạng thái các ngôn ngữ được chọn sang Pending
     if retry_req.language_codes:
         for loc in poi.localizations:
             if loc.language_code in retry_req.language_codes:
@@ -329,7 +433,6 @@ async def retry_pipeline_for_poi(
         poi.vector_last_error = None
         poi.updated_at = now
 
-    # Ghi sự kiện poi.retry vào OutboxEvents
     event_payload = {
         "poi_id": poi.poi_id,
         "revision": poi.revision,

@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -9,12 +9,14 @@ from app.schemas.poi import (
     CreatePOIRequest, 
     UpdatePOIRequest, 
     POIResponse, 
+    CustomerPOIListResponse,
     RetryPipelineRequest
 )
 from app.services.poi_service import (
     create_poi, 
     update_poi, 
     delete_poi, 
+    get_customer_pois,
     get_pipeline_status_overview, 
     retry_pipeline_for_poi
 )
@@ -22,6 +24,22 @@ from app.services.storage import upload_thumbnail
 from app.services.security import require_roles, get_current_user_payload
 
 router = APIRouter(prefix="/api/pois", tags=["POI Management"])
+
+@router.get(
+    "",
+    summary="UC02: Du khách lấy danh sách POI (Hỗ trợ 304 Not Modified và Fallback)",
+    description="Truy xuất danh sách điểm tham quan theo ngôn ngữ yêu cầu. Nếu phiên bản trùng since_version, trả HTTP 304."
+)
+async def list_pois(
+    lang: str = Query("vi", description="Mã ngôn ngữ cần nghe thuyết minh"),
+    since_version: Optional[int] = Query(None, description="Phiên bản dữ liệu Client đang có để kiểm tra 304"),
+    db: AsyncSession = Depends(get_db),
+    user_payload: dict = Depends(get_current_user_payload)
+):
+    data, is_304 = await get_customer_pois(db, lang=lang, since_version=since_version)
+    if is_304:
+        return Response(status_code=status.HTTP_304_NOT_MODIFIED)
+    return data
 
 @router.post(
     "",
