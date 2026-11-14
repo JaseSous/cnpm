@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LanguageSelectPage from './pages/LanguageSelectPage';
 import QRAuthPage from './pages/QRAuthPage';
 import MapAndPOIListPage from './pages/MapAndPOIListPage';
+import POIDetailPage from './pages/POIDetailPage';
 
 export default function App() {
   return (
@@ -11,6 +12,7 @@ export default function App() {
           <Route path="/" element={<LanguageSelectPage />} />
           <Route path="/auth" element={<QRAuthPage />} />
           <Route path="/map" element={<MapAndPOIListPage />} />
+          <Route path="/poi/:id" element={<POIDetailPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
