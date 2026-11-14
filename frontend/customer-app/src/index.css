@@ -8,3 +8,36 @@
   height: 100%;
   z-index: 0;
 }
+
+/* Mobile responsive safe area padding & optimizations */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
+body {
+  padding-top: var(--sat);
+  padding-bottom: var(--sab);
+  padding-left: var(--sal);
+  padding-right: var(--sar);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.pb-safe {
+  padding-bottom: calc(1rem + var(--sab));
+}
+
+.pt-safe {
+  padding-top: calc(1rem + var(--sat));
+}
+
+/* Momentum scroll on mobile iOS/Android */
+.scroll-touch {
+  -webkit-overflow-scrolling: touch;
+}
+

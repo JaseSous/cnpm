@@ -5,6 +5,7 @@ import L from 'leaflet';
 import { POI } from '../types';
 import { syncPOIs } from '../services/poiSync';
 import { calculateHaversineDistance, useGPSTracker } from '../services/gpsEngine';
+import { getCachedAudioUrl } from '../services/audioCache';
 import { 
   Map as MapIcon, 
   List, 
@@ -96,11 +97,15 @@ export default function MapAndPOIListPage() {
   } = useGPSTracker(pois, {
     autoAudioEnabled,
     onTriggerPOI: (poi) => {
-      // Khi bước vào vùng POI, tự động phát audio
+      // Khi bước vào vùng POI, tự động phát audio với lazy loading từ cache
       if (miniAudioRef.current && poi.audio_url) {
-        miniAudioRef.current.src = poi.audio_url;
-        miniAudioRef.current.play().catch((e) => console.warn('Autoplay blocked:', e));
-        setMiniPlayerPlaying(true);
+        getCachedAudioUrl(poi.audio_url).then((url) => {
+          if (miniAudioRef.current) {
+            miniAudioRef.current.src = url;
+            miniAudioRef.current.play().catch((e) => console.warn('Autoplay blocked:', e));
+            setMiniPlayerPlaying(true);
+          }
+        });
       }
     },
   });
@@ -305,7 +310,7 @@ export default function MapAndPOIListPage() {
             </div>
 
             {/* View Danh sách POI */}
-            <div className={`flex-1 overflow-y-auto p-4 space-y-3 ${activeTab === 'list' ? 'block' : 'hidden'}`}>
+            <div className={`flex-1 overflow-y-auto p-4 space-y-3 scroll-touch pb-safe ${activeTab === 'list' ? 'block' : 'hidden'}`}>
               {processedPOIs.length === 0 ? (
                 <div className="text-center py-16 text-stone-400 text-sm">
                   Chưa có điểm tham quan nào được cập nhật.
@@ -367,9 +372,18 @@ export default function MapAndPOIListPage() {
           </>
         )}
 
+        {/* Hidden Mini Audio element */}
+        <audio
+          ref={miniAudioRef}
+          preload="none"
+          onPlay={() => setMiniPlayerPlaying(true)}
+          onPause={() => setMiniPlayerPlaying(false)}
+          onEnded={() => setMiniPlayerPlaying(false)}
+        />
+
         {/* Floating Mini Player khi GPS tự động kích hoạt POI */}
         {activeTriggeredPoi && (
-          <div className="absolute bottom-4 left-4 right-4 z-[500] p-3.5 rounded-2xl bg-stone-900/95 text-white shadow-2xl backdrop-blur border border-amber-500/30 flex items-center justify-between gap-3 animate-slide-up">
+          <div className="absolute bottom-[calc(1rem+var(--sab))] left-4 right-4 z-[500] p-3.5 rounded-2xl bg-stone-900/95 text-white shadow-2xl backdrop-blur border border-amber-500/30 flex items-center justify-between gap-3 animate-slide-up">
             <div
               className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
               onClick={() => navigate(`/poi/${activeTriggeredPoi.poi_id}`)}

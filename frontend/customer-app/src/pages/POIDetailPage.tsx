@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getPOIsFromDB } from '../services/db';
 import { syncPOIs } from '../services/poiSync';
+import { getCachedAudioUrl } from '../services/audioCache';
 import { POI } from '../types';
 import { 
   ArrowLeft, 
@@ -22,6 +23,7 @@ export default function POIDetailPage() {
   const poiId = Number(id);
 
   const [poi, setPoi] = useState<POI | null>(null);
+  const [audioSrc, setAudioSrc] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
@@ -45,6 +47,10 @@ export default function POIDetailPage() {
 
         if (found) {
           setPoi(found);
+          if (found.audio_url) {
+            const cached = await getCachedAudioUrl(found.audio_url);
+            setAudioSrc(cached);
+          }
         }
       } catch (err) {
         console.warn('Lỗi đọc POI chi tiết:', err);
@@ -128,18 +134,18 @@ export default function POIDetailPage() {
   const hasAudio = Boolean(poi.audio_url && !poi.fallback);
 
   return (
-    <div className="flex-1 flex flex-col min-h-screen bg-stone-50 pb-8">
-      {/* Hidden Audio Element */}
+    <div className="flex-1 flex flex-col min-h-screen bg-stone-50 pb-safe">
+      {/* Hidden Audio Element - Lazy loaded */}
       {hasAudio && (
         <audio
           ref={audioRef}
-          src={poi.audio_url!}
+          src={audioSrc || poi.audio_url!}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
           onEnded={() => setIsPlaying(false)}
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleTimeUpdate}
-          preload="metadata"
+          preload="none"
         />
       )}
 
