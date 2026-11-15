@@ -77,9 +77,12 @@ async def translate_with_gemini(
             f"Title: {title}\n"
             f"Description: {description}"
         )
-        response = await _gemini_client.aio.models.generate_content(
-            model=model,
-            contents=prompt
+        response = await asyncio.wait_for(
+            _gemini_client.aio.models.generate_content(
+                model=model,
+                contents=prompt
+            ),
+            timeout=15.0
         )
         if response and response.text:
             raw_text = response.text.strip()
@@ -116,31 +119,37 @@ async def translate_text(
 
     target_code = LANGUAGE_CODE_MAP.get(target_lang, target_lang)
 
-    # 1. Thử Google Translator
+    # 1. Thử Google Translator với timeout 5s
     try:
         loop = asyncio.get_event_loop()
-        translated = await loop.run_in_executor(
-            None,
-            lambda: GoogleTranslator(source=source_lang, target=target_code).translate(text)
+        translated = await asyncio.wait_for(
+            loop.run_in_executor(
+                None,
+                lambda: GoogleTranslator(source=source_lang, target=target_code).translate(text)
+            ),
+            timeout=5.0
         )
         if translated:
             return translated
     except Exception as e:
-        logger.warning(f"GoogleTranslator gặp sự cố ({e}). Chuyển sang MyMemoryTranslator...")
+        logger.warning(f"GoogleTranslator gặp sự cố hoặc timeout ({e}). Chuyển sang MyMemoryTranslator...")
 
-    # 2. Thử MyMemory Translator
+    # 2. Thử MyMemory Translator với timeout 5s
     try:
         source_mm = MYMEMORY_CODE_MAP.get(source_lang, "vi-VN") if source_lang != "auto" else "vi-VN"
         target_mm = MYMEMORY_CODE_MAP.get(target_lang, f"{target_lang}-{target_lang.upper()}")
         loop = asyncio.get_event_loop()
-        translated = await loop.run_in_executor(
-            None,
-            lambda: MyMemoryTranslator(source=source_mm, target=target_mm).translate(text[:450])
+        translated = await asyncio.wait_for(
+            loop.run_in_executor(
+                None,
+                lambda: MyMemoryTranslator(source=source_mm, target=target_mm).translate(text[:450])
+            ),
+            timeout=5.0
         )
         if translated:
             return translated
     except Exception as e:
-        logger.warning(f"MyMemoryTranslator gặp sự cố ({e}). Sử dụng Fallback giả lập...")
+        logger.warning(f"MyMemoryTranslator gặp sự cố hoặc timeout ({e}). Sử dụng Fallback giả lập...")
 
     # 3. Fallback an toàn (không để dừng luồng pipeline)
     return f"[{target_lang.upper()}] {text}"

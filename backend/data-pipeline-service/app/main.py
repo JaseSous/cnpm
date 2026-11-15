@@ -152,10 +152,13 @@ app = FastAPI(
 
 @app.get("/health", tags=["System"])
 async def health_check():
+    has_gemini = bool(settings.GEMINI_API_KEY and settings.GEMINI_API_KEY not in ("your-gemini-api-key", "dummy", ""))
     return {
         "status": "healthy",
         "service": "data-pipeline-service",
-        "is_running": worker.is_running
+        "is_running": worker.is_running,
+        "gemini_configured": has_gemini,
+        "version": "1.2.0"
     }
 
 async def main():
