@@ -139,8 +139,26 @@ async def reverse_proxy(request: Request, path: str):
         )
 
     # 3. Chuyển tiếp Request qua httpx
-    if not downstream_base.startswith("http://") and not downstream_base.startswith("https://"):
-        downstream_base = f"http://{downstream_base}"
+    if downstream_base.startswith("http://"):
+        scheme = "http://"
+        host_part = downstream_base[7:]
+    elif downstream_base.startswith("https://"):
+        scheme = "https://"
+        host_part = downstream_base[8:]
+    else:
+        scheme = "http://"
+        host_part = downstream_base
+
+    # Tự động gắn port cho mạng nội bộ Render nếu thiếu port
+    if ":" not in host_part and not any(host_part.endswith(tld) for tld in [".com", ".org", ".io", ".net", ".app"]):
+        if "auth" in host_part:
+            host_part = f"{host_part}:8001"
+        elif "poi" in host_part:
+            host_part = f"{host_part}:8002"
+        elif "chatbot" in host_part:
+            host_part = f"{host_part}:8003"
+
+    downstream_base = f"{scheme}{host_part}"
     target_url = f"{downstream_base.rstrip('/')}{full_path}"
     headers = dict(request.headers)
     headers.pop("host", None)

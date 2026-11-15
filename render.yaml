@@ -18,17 +18,17 @@ services:
         fromService:
           type: web
           name: linh-ung-auth-service
-          property: host
+          property: hostport
       - key: POI_SERVICE_URL
         fromService:
           type: web
           name: linh-ung-poi-service
-          property: host
+          property: hostport
       - key: CHATBOT_SERVICE_URL
         fromService:
           type: web
           name: linh-ung-chatbot-service
-          property: host
+          property: hostport
 
   # 2. Authorization Service (UC01, UC07, UC08)
   - type: web
