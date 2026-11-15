@@ -8,6 +8,12 @@ from app.routes.auth import router as auth_router
 async def lifespan(app: FastAPI):
     # Khởi tạo bảng database nếu chưa có
     await init_db()
+    # Tự động seed tài khoản admin/staff và gói vé nếu chưa có
+    try:
+        from app.seed_data import seed_data
+        await seed_data()
+    except Exception as e:
+        print(f"Warning: Seed auth data error: {e}")
     yield
 
 app = FastAPI(

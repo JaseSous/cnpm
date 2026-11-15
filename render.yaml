@@ -15,20 +15,11 @@ services:
       - key: REDIS_URL
         sync: false
       - key: AUTH_SERVICE_URL
-        fromService:
-          type: web
-          name: linh-ung-auth-service
-          property: hostport
+        value: https://linh-ung-auth-service.onrender.com
       - key: POI_SERVICE_URL
-        fromService:
-          type: web
-          name: linh-ung-poi-service
-          property: hostport
+        value: https://linh-ung-poi-service.onrender.com
       - key: CHATBOT_SERVICE_URL
-        fromService:
-          type: web
-          name: linh-ung-chatbot-service
-          property: hostport
+        value: https://linh-ung-chatbot-service.onrender.com
 
   # 2. Authorization Service (UC01, UC07, UC08)
   - type: web
