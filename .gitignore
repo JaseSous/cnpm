@@ -39,11 +39,6 @@ data/*.sqlite3
 Thumbs.db
 desktop.ini
 
-# Generated protobuf files (generated during build)
-*_pb2.py
-*_pb2_grpc.py
-*_pb2.pyi
-
 # Testing & Coverage
 .pytest_cache/
 .coverage
