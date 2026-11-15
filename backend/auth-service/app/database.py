@@ -1,5 +1,6 @@
 import os
 import re
+import urllib.parse
 from pathlib import Path
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
@@ -9,6 +10,18 @@ from app.config import settings
 # Hàm chuẩn hóa URL database cho SQLAlchemy Async (tự động thêm driver asyncpg nếu là Postgres và xử lý IPv4 cho Supabase)
 def normalize_async_db_url(url: str) -> str:
     url = url.strip()
+    if url.startswith("sqlite"):
+        return url
+
+    # Tự động encode ký tự đặc biệt trong mật khẩu nếu có
+    match = re.match(r"^([a-zA-Z0-9\+\-]+://)([^:]+):(.*)@([^@/]+)(/.*)?$", url)
+    if match:
+        proto, user, pwd, host, rest = match.groups()
+        rest = rest or ""
+        pwd_decoded = urllib.parse.unquote(pwd)
+        pwd_encoded = urllib.parse.quote_plus(pwd_decoded)
+        url = f"{proto}{user}:{pwd_encoded}@{host}{rest}"
+
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql+asyncpg://", 1)
     elif url.startswith("postgresql://") and not url.startswith("postgresql+asyncpg://"):
