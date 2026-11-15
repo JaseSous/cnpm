@@ -1,0 +1,113 @@
+services:
+  # 1. API Gateway (Cổng giao tiếp duy nhất tiếp nhận request từ Frontend)
+  - type: web
+    name: linh-ung-gateway
+    env: docker
+    dockerfilePath: backend/api-gateway/Dockerfile
+    dockerContext: backend/api-gateway
+    plan: free
+    region: singapore
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: JWT_SECRET_KEY
+        value: change-this-to-a-super-secret-random-key-in-production
+      - key: REDIS_URL
+        sync: false
+      - key: AUTH_SERVICE_URL
+        fromService:
+          type: web
+          name: linh-ung-auth-service
+          property: host
+      - key: POI_SERVICE_URL
+        fromService:
+          type: web
+          name: linh-ung-poi-service
+          property: host
+      - key: CHATBOT_SERVICE_URL
+        fromService:
+          type: web
+          name: linh-ung-chatbot-service
+          property: host
+
+  # 2. Authorization Service (UC01, UC07, UC08)
+  - type: web
+    name: linh-ung-auth-service
+    env: docker
+    dockerfilePath: backend/auth-service/Dockerfile
+    dockerContext: backend/auth-service
+    plan: free
+    region: singapore
+    envVars:
+      - key: PORT
+        value: 8001
+      - key: JWT_SECRET_KEY
+        value: change-this-to-a-super-secret-random-key-in-production
+      - key: REDIS_URL
+        sync: false
+      - key: AUTH_DB_URL
+        value: sqlite+aiosqlite:///./data/auth_payment.db
+
+  # 3. Navigation & POI Service (UC02, UC10, UC11)
+  - type: web
+    name: linh-ung-poi-service
+    env: docker
+    dockerfilePath: backend/poi-service/Dockerfile
+    dockerContext: backend/poi-service
+    plan: free
+    region: singapore
+    envVars:
+      - key: PORT
+        value: 8002
+      - key: JWT_SECRET_KEY
+        value: change-this-to-a-super-secret-random-key-in-production
+      - key: POI_DB_URL
+        value: sqlite+aiosqlite:///./data/poi.db
+      - key: AMQP_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+
+  # 4. Chatbot AI Service (UC03, UC12)
+  - type: web
+    name: linh-ung-chatbot-service
+    env: docker
+    dockerfilePath: backend/chatbot-service/Dockerfile
+    dockerContext: backend/chatbot-service
+    plan: free
+    region: singapore
+    envVars:
+      - key: PORT
+        value: 8003
+      - key: JWT_SECRET_KEY
+        value: change-this-to-a-super-secret-random-key-in-production
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+
+  # 5. Data Pipeline Worker (UC04)
+  - type: web
+    name: linh-ung-pipeline-worker
+    env: docker
+    dockerfilePath: backend/data-pipeline-service/Dockerfile
+    dockerContext: backend/data-pipeline-service
+    plan: free
+    region: singapore
+    envVars:
+      - key: AMQP_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false

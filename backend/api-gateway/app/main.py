@@ -139,6 +139,8 @@ async def reverse_proxy(request: Request, path: str):
         )
 
     # 3. Chuyển tiếp Request qua httpx
+    if not downstream_base.startswith("http://") and not downstream_base.startswith("https://"):
+        downstream_base = f"http://{downstream_base}"
     target_url = f"{downstream_base.rstrip('/')}{full_path}"
     headers = dict(request.headers)
     headers.pop("host", None)
