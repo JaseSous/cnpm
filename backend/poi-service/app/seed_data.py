@@ -76,6 +76,65 @@ SUPPORTED_LANGUAGES_INIT = [
     {"code": "hi", "name": "Hindi", "native": "हिन्दी", "fallback": False, "tts": True},
 ]
 
+REAL_LOCALIZATIONS_POI_1 = {
+    "en": {
+        "title": "Lady Buddha Statue of Bai But",
+        "description": "The statue of Bodhisattva Avalokiteshvara at Linh Ung Bai But Pagoda has a height of 67 meters and a lotus pedestal diameter of 35 meters, equivalent to a 30-story building. The statue stands with its back against the Son Tra mountain peak, facing the vast East Sea, one hand making the samadhi seal and the other holding a vase of nectar as if sprinkling peace upon the fishermen of the Da Nang sea."
+    },
+    "zh": {
+        "title": "拜佛观音佛像",
+        "description": "灵应寺的观世音菩萨像高67米，莲花座直径35米，相当于30层楼高。佛像背靠山茶山顶，面朝辽阔的东海，一手结三昧印，一手持甘露瓶，宛如为岘港海域的渔民播撒安宁。"
+    },
+    "ja": {
+        "title": "バイブットの観音菩薩像",
+        "description": "リンウン・バイブット寺の観世音菩薩像は、高さ67メートル、蓮華座の直径35メートルを誇り、30階建てのビルに相当します。ソンチャ山の頂を背にし、広大な東シナ海を望み、片手で三昧の印を結び、もう一方の手で甘露の壺を持ち、ダナンの海の漁民たちに安らぎを降り注ぐかのように佇んでいます。"
+    },
+    "ko": {
+        "title": "바이붓 관음보살상",
+        "description": "린응 바이붓 사원의 관세음보살상은 높이 67m, 연화대 지름 35m로 30층 건물 높이에 달합니다. 손짜 산 정상에 등을 대고 광활한 동해를 바라보며, 한 손에는 삼매인을 맺고 다른 한 손에는 감로수 병을 들고 있어 다낭 해역의 어민들에게 평안을 뿌려주는 듯합니다."
+    },
+    "fr": {
+        "title": "Statue de la Bodhisattva Avalokiteshvara de Bai But",
+        "description": "La statue du Bodhisattva Avalokiteshvara à la pagode Linh Ung Bai But mesure 67 mètres de haut avec un socle de lotus de 35 mètres de diamètre, équivalent à un édifice de 30 étages. Adossée au mont Son Tra et faisant face à la mer Orientale, elle tient un vase de nectar bénissant les marins de Da Nang."
+    },
+    "de": {
+        "title": "Guanyin-Statue in Bai But",
+        "description": "Die Statue des Bodhisattva Avalokiteshvara in der Linh-Ung-Bai-But-Pagode ist 67 Meter hoch mit einem Lotossockel von 35 Metern Durchmesser. Sie blickt auf das Ostmeer und segnet die Fischer von Da Nang."
+    },
+    "es": {
+        "title": "Estatua de la Bodhisattva Guanyin de Bai But",
+        "description": "La estatua de la Bodhisattva Avalokiteshvara en la Pagoda Linh Ung Bai But tiene una altura de 67 metros y una base de loto de 35 metros de diámetro, equivalente a un edificio de 30 pisos."
+    },
+    "th": {
+        "title": "รูปปั้นพระโพธิสัตว์กวนอิมแห่งลานบุต (Bai But)",
+        "description": "รูปปั้นพระโพธิสัตว์กวนอิม ณ วัดลิงอึ้ง ลานบุต มีความสูง 67 เมตร เส้นผ่านศูนย์กลางฐานบัว 35 เมตร เทียบเท่าอาคาร 30 ชั้น ยืนพิงยอดเขาเซินตร่า หันหน้าออกสู่ทะเลตะวันออกอันกว้างใหญ่"
+    },
+    "ru": {
+        "title": "Статуя Бодхисаттвы Куаньинь в Байбут",
+        "description": "Статуя Бодхисаттвы Авалокитешвары в пагоде Линь Ынг Байбут имеет высоту 67 метров и диаметр лотосового пьедестала 35 метров, что эквивалентно 30-этажному зданию."
+    },
+    "pt": {
+        "title": "Estátua da Bodhisattva Guanyin de Bai But",
+        "description": "A estátua do Bodhisattva Avalokiteshvara no Pagode Linh Ung Bai But tem 67 metros de altura e uma base de lótus com 35 metros de diâmetro, abençoando as águas de Da Nang."
+    },
+    "it": {
+        "title": "Statua della Bodhisattva Guanyin di Bai But",
+        "description": "La statua del Bodhisattva Avalokiteshvara presso la pagoda Linh Ung Bai But ha un'altezza di 67 metri e un diametro del piedistallo di loto di 35 metri."
+    },
+    "id": {
+        "title": "Patung Bodhisattva Avalokiteshvara Bai But",
+        "description": "Patung Bodhisattva Avalokiteshvara di Pagoda Linh Ung Bai But memiliki ketinggian 67 meter dan diameter teratai 35 meter, setara dengan gedung 30 lantai."
+    },
+    "ar": {
+        "title": "تمثال البوذيساتفا غوانين في باي بوت",
+        "description": "يبلغ ارتفاع تمثال البوذيساتفا أفالوكيتشفارا في معبد لين أونغ باي بوت 67 متراً ويبلغ قطر قاعدة اللوتس 35 متراً، وهو ما يعادل مبنى مكوناً من 30 طابقاً."
+    },
+    "hi": {
+        "title": "बाई बुत की बोधिसत्व अवलोकितेश्वर (गुआनयिन) मूर्ति",
+        "description": "लिन्ह उंग बाई बुत पगोडा में बोधिसत्व अवलोकितेश्वर की मूर्ति 67 मीटर ऊंची है और इसके कमल के आसन का व्यास 35 मीटर है, जो 30 मंजिला इमारत के बराबर है।"
+    }
+}
+
 async def seed_real_pois() -> int:
     """Nạp dữ liệu thực tế 6 điểm tham quan nổi bật của Chùa Linh Ứng"""
     await init_db()
@@ -141,11 +200,17 @@ async def seed_real_pois() -> int:
             for lang in active_langs:
                 if lang.language_code == "vi":
                     continue
+                
+                # Nếu là POI #1, lấy bản dịch Phật giáo chuẩn xác
+                real_loc = REAL_LOCALIZATIONS_POI_1.get(lang.language_code) if poi.poi_id == 1 else None
+                t_title = real_loc["title"] if real_loc else f"[{lang.language_code.upper()}] {poi_data['title']}"
+                t_desc = real_loc["description"] if real_loc else f"[{lang.language_code.upper()}] {poi_data['description']}"
+                
                 loc = POILocalization(
                     poi_id=poi.poi_id,
                     language_code=lang.language_code,
-                    translated_title=f"[{lang.language_code.upper()}] {poi_data['title']}",
-                    translated_description=f"[{lang.language_code.upper()}] {poi_data['description']}",
+                    translated_title=t_title,
+                    translated_description=t_desc,
                     audio_url=f"/media/audios/poi_{poi.poi_id}_{lang.language_code}_rev1.mp3",
                     applied_revision=1,
                     status="Done",
