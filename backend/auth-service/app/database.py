@@ -29,13 +29,13 @@ def normalize_async_db_url(url: str) -> str:
 
     # Supabase Direct host (db.<ref>.supabase.co) là IPv6-only.
     # Render Free Tier không có mạng IPv6 nên sẽ báo lỗi 'Network is unreachable'.
-    # Tự động chuyển đổi sang Supabase Connection Pooler IPv4:
+    # Tự động chuyển đổi sang Supabase Connection Pooler IPv4 (mặc định vùng ap-southeast-2):
     if "supabase.co" in url and "db." in url:
         match = re.search(r"db\.([a-zA-Z0-9]+)\.supabase\.co", url)
         if match:
             project_ref = match.group(1)
-            url = url.replace(f"db.{project_ref}.supabase.co", "aws-0-ap-southeast-1.pooler.supabase.com")
-            url = re.sub(r":5432(?=/|\?|$)", ":6543", url)
+            region = os.environ.get("SUPABASE_REGION", "ap-southeast-2")
+            url = url.replace(f"db.{project_ref}.supabase.co", f"aws-0-{region}.pooler.supabase.com")
             if "://postgres:" in url:
                 url = url.replace("://postgres:", f"://postgres.{project_ref}:", 1)
             elif "://postgres@" in url:
