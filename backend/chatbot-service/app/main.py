@@ -20,11 +20,17 @@ async def lifespan(app: FastAPI):
     logger.info("Chatbot AI Service đang khởi động...")
     await redis_service.connect()
     qdrant_service.ensure_collection_exists()
-    await chatbot_grpc_server_manager.start()
+    try:
+        await chatbot_grpc_server_manager.start()
+    except Exception as e:
+        logger.warning(f"Không thể khởi động gRPC Server nội bộ: {e}")
     yield
     # Tắt kết nối
     logger.info("Chatbot AI Service đang tắt...")
-    await chatbot_grpc_server_manager.stop()
+    try:
+        await chatbot_grpc_server_manager.stop()
+    except Exception:
+        pass
     await redis_service.disconnect()
 
 app = FastAPI(

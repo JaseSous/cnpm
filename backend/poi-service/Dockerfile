@@ -13,6 +13,6 @@ COPY . .
 
 RUN mkdir -p /app/data /app/data/uploads/thumbnails
 
-EXPOSE 8002 50051
+EXPOSE 8002
 
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8002}"]

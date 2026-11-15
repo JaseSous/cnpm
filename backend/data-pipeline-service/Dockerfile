@@ -14,4 +14,6 @@ COPY . .
 
 RUN mkdir -p /app/data/temp_audio /app/data/uploads/audios
 
-CMD ["python", "-m", "app.main"]
+EXPOSE 8004
+
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8004}"]

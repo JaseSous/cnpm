@@ -122,7 +122,41 @@ class PipelineWorker:
             await self.connection.close()
         logger.info("Data Pipeline Worker đã dừng.")
 
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+import uvicorn
+import os
+
 worker = PipelineWorker()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Khởi chạy Worker tiêu thụ RabbitMQ trong background task
+    task = asyncio.create_task(worker.start())
+    logger.info("Data Pipeline Worker background task đã khởi động.")
+    yield
+    # Dừng worker khi tắt container
+    await worker.stop()
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+app = FastAPI(
+    title="Chùa Linh Ứng - Data Pipeline Service",
+    description="Worker tiêu thụ RabbitMQ: dịch thuật, sinh TTS audio và đồng bộ Vector embeddings",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+@app.get("/health", tags=["System"])
+async def health_check():
+    return {
+        "status": "healthy",
+        "service": "data-pipeline-service",
+        "is_running": worker.is_running
+    }
 
 async def main():
     try:
@@ -131,4 +165,5 @@ async def main():
         await worker.stop()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    port = int(os.environ.get("PORT", 8004))
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port)

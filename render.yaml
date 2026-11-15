@@ -103,6 +103,8 @@ services:
     plan: free
     region: singapore
     envVars:
+      - key: PORT
+        value: 8004
       - key: AMQP_URL
         sync: false
       - key: GEMINI_API_KEY

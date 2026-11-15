@@ -16,11 +16,17 @@ async def lifespan(app: FastAPI):
     await seed_real_pois()
     # Khởi động Outbox Publisher background worker
     outbox_publisher.start()
-    # Khởi động gRPC Server nội bộ
-    await grpc_server_manager.start()
+    # Khởi động gRPC Server nội bộ (chế độ an toàn)
+    try:
+        await grpc_server_manager.start()
+    except Exception as e:
+        print(f"Warning: Không thể khởi động gRPC Server nội bộ: {e}")
     yield
     # Dừng gRPC Server và Outbox Publisher
-    await grpc_server_manager.stop()
+    try:
+        await grpc_server_manager.stop()
+    except Exception:
+        pass
     await outbox_publisher.stop()
 
 app = FastAPI(

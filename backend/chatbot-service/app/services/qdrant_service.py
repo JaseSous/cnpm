@@ -47,7 +47,7 @@ class QdrantService:
                 self.client = QdrantClient(":memory:", check_compatibility=False)
 
     def ensure_collection_exists(self):
-        """Đảm bảo Collection poi_embeddings tồn tại với kích thước vector 768 chiều"""
+        """Đảm bảo Collection poi_embeddings tồn tại với kích thước vector 768 chiều và payload indexes"""
         try:
             if not self.client.collection_exists(self.collection_name):
                 self.client.create_collection(
@@ -60,6 +60,22 @@ class QdrantService:
                 logger.info(f"Đã tạo Qdrant collection mới: '{self.collection_name}' (dim=768, Cosine)")
             else:
                 logger.info(f"Qdrant collection '{self.collection_name}' đã tồn tại sẵn")
+
+            # Tạo payload index để hỗ trợ filtering trên Qdrant Cloud
+            try:
+                from qdrant_client.models import PayloadSchemaType
+                self.client.create_payload_index(
+                    collection_name=self.collection_name,
+                    field_name="poi_id",
+                    field_schema=PayloadSchemaType.INTEGER
+                )
+                self.client.create_payload_index(
+                    collection_name=self.collection_name,
+                    field_name="language_code",
+                    field_schema=PayloadSchemaType.KEYWORD
+                )
+            except Exception:
+                pass
         except Exception as e:
             logger.error(f"Lỗi khi kiểm tra/tạo collection Qdrant: {e}")
 
