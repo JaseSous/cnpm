@@ -42,3 +42,15 @@ async def test_translate_poi_content_different_language():
         )
         assert res["title"] == "Tượng Phật Bà in en"
         assert res["description"] == "Tượng Phật Quan Âm cao 67m in en"
+
+@pytest.mark.asyncio
+async def test_translate_poi_content_gemini_success():
+    with patch("app.services.translator.translate_with_gemini", return_value={"title": "Lady Buddha", "description": "67m Statue"}):
+        res = await translate_poi_content(
+            title="Tượng Phật Bà",
+            description="Tượng Phật Quan Âm cao 67m",
+            target_lang="en",
+            source_lang="vi"
+        )
+        assert res["title"] == "Lady Buddha"
+        assert res["description"] == "67m Statue"

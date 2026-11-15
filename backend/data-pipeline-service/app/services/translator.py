@@ -1,7 +1,10 @@
 import logging
 import asyncio
+import json
+import re
 from typing import Optional, Dict
 from deep_translator import GoogleTranslator, MyMemoryTranslator
+from app.config import settings
 
 logger = logging.getLogger("pipeline-translator")
 
@@ -41,6 +44,61 @@ MYMEMORY_CODE_MAP = {
     "ar": "ar-SA",
     "hi": "hi-IN"
 }
+
+# Khởi tạo Gemini Client nếu có API key hợp lệ
+_gemini_client = None
+if settings.GEMINI_API_KEY and settings.GEMINI_API_KEY not in ("your-gemini-api-key", "dummy", ""):
+    try:
+        from google import genai
+        _gemini_client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        logger.info(f"Đã khởi tạo Gemini Client cho dịch thuật (Model: {getattr(settings, 'GEMINI_MODEL', 'gemini-3.8-flash')})")
+    except Exception as e:
+        logger.warning(f"Không thể khởi tạo Gemini Client cho dịch thuật: {e}")
+
+
+async def translate_with_gemini(
+    title: str,
+    description: str,
+    target_lang: str,
+    source_lang: str = "vi"
+) -> Optional[Dict[str, str]]:
+    """Dịch tiêu đề và mô tả bằng Gemini AI chuẩn bối cảnh văn hóa Phật giáo"""
+    if not _gemini_client:
+        return None
+
+    try:
+        model = getattr(settings, "GEMINI_MODEL", "gemini-3.8-flash")
+        prompt = (
+            f"You are a professional multilingual translator for Buddhist pagoda tourism in Vietnam.\n"
+            f"Translate the following pagoda attraction title and description from '{source_lang}' to target language '{target_lang}'.\n"
+            f"Maintain respectful, solemn Buddhist heritage terminology (e.g. Avalokiteshvara, Bodhisattva, Pagoda).\n"
+            f"Return ONLY a valid JSON object with keys 'title' and 'description' without markdown formatting or code blocks:\n"
+            f"{{\"title\": \"...\", \"description\": \"...\"}}\n\n"
+            f"Title: {title}\n"
+            f"Description: {description}"
+        )
+        response = await _gemini_client.aio.models.generate_content(
+            model=model,
+            contents=prompt
+        )
+        if response and response.text:
+            raw_text = response.text.strip()
+            # Xóa markdown code fence nếu có
+            if raw_text.startswith("```"):
+                raw_text = re.sub(r"^```[a-zA-Z]*\n?", "", raw_text)
+                raw_text = re.sub(r"\n?```$", "", raw_text).strip()
+
+            data = json.loads(raw_text)
+            t_title = str(data.get("title", "")).strip()
+            t_desc = str(data.get("description", "")).strip()
+            if t_title and t_desc:
+                logger.info(f"Gemini AI dịch thành công sang '{target_lang}': '{t_title[:30]}...'")
+                return {"title": t_title, "description": t_desc}
+    except Exception as e:
+        logger.warning(f"Gemini AI dịch thất bại sang '{target_lang}': {e}. Sẽ thử fallback.")
+
+    return None
+
 
 async def translate_text(
     text: str,
@@ -94,16 +152,32 @@ async def translate_poi_content(
     target_lang: str,
     source_lang: str = "vi"
 ) -> Dict[str, str]:
-    """Dịch cả title và description sang ngôn ngữ đích"""
+    """
+    Dịch cả title và description sang ngôn ngữ đích:
+    1. Trả ngay nếu target_lang == source_lang
+    2. Thử Gemini AI (chất lượng cao nhất, chuẩn bối cảnh Phật giáo)
+    3. Fallback sang deep-translator (GoogleTranslator -> MyMemoryTranslator)
+    """
     if target_lang == source_lang:
         return {
             "title": title,
             "description": description
         }
-    
+
+    # 1. Thử dịch bằng Gemini AI
+    gemini_result = await translate_with_gemini(
+        title=title,
+        description=description,
+        target_lang=target_lang,
+        source_lang=source_lang
+    )
+    if gemini_result:
+        return gemini_result
+
+    # 2. Fallback sang GoogleTranslator / MyMemoryTranslator
     translated_title = await translate_text(title, target_lang=target_lang, source_lang=source_lang)
     translated_desc = await translate_text(description, target_lang=target_lang, source_lang=source_lang)
-    
+
     return {
         "title": translated_title or title,
         "description": translated_desc or description

@@ -10,8 +10,9 @@ class Settings(BaseSettings):
     POI_GRPC_TARGET: str = "localhost:50051"
     CHATBOT_GRPC_TARGET: str = "localhost:50052"
 
-    # Google Gemini AI Embedding
+    # Google Gemini AI Embedding & Translation
     GEMINI_API_KEY: str = "your-gemini-api-key"
+    GEMINI_MODEL: str = "gemini-3.8-flash"
     EMBEDDING_MODEL: str = "gemini-embedding-001"
 
     # Supabase Storage cho Audio Files
