@@ -41,10 +41,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 2. Rate Limiting Middleware (áp dụng toàn bộ endpoint)
+# 2. Rate Limiting Middleware (áp dụng toàn bộ endpoint ngoại trừ health/options/docs)
 @app.middleware("http")
 async def rate_limiting_middleware(request: Request, call_next):
-    client_ip = request.headers.get("x-forwarded-for") or (request.client.host if request.client else "127.0.0.1")
+    # Bỏ qua Rate Limiting cho OPTIONS preflight và Render container health check probe
+    if request.method == "OPTIONS" or request.url.path == "/health":
+        return await call_next(request)
+
+    # Ưu tiên lấy IP thực qua Cloudflare/Proxy header
+    client_ip = (
+        request.headers.get("cf-connecting-ip")
+        or request.headers.get("x-real-ip")
+        or request.headers.get("x-forwarded-for")
+        or (request.client.host if request.client else "127.0.0.1")
+    )
     if "," in client_ip:
         client_ip = client_ip.split(",")[0].strip()
 

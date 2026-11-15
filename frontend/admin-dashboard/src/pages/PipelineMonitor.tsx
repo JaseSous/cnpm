@@ -62,8 +62,12 @@ export const PipelineMonitor: React.FC = () => {
 
   useEffect(() => {
     fetchStatus();
-    // Tự động làm mới mỗi 10 giây
-    const interval = setInterval(fetchStatus, 10000);
+    // Tự động làm mới mỗi 15 giây khi người dùng đang mở tab
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchStatus();
+      }
+    }, 15000);
     return () => clearInterval(interval);
   }, []);
 

@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     # Redis Rate Limiting (DB 0 cho Gateway & Auth)
     REDIS_URL: str = "redis://localhost:6379"
     REDIS_DB: int = 0
-    RATE_LIMIT_IP_MAX: int = 100
+    RATE_LIMIT_IP_MAX: int = 5000
     RATE_LIMIT_IP_WINDOW_SECONDS: int = 3600
 
     model_config = SettingsConfigDict(
