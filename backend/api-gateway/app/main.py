@@ -170,7 +170,7 @@ async def reverse_proxy(request: Request, path: str):
 
     try:
         body = await request.body()
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.request(
                 method=request.method,
                 url=target_url,
