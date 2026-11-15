@@ -35,14 +35,13 @@ export default function POIDetailPage() {
     const loadPoiDetail = async () => {
       const lang = localStorage.getItem('customer_lang') || 'vi';
       try {
-        // Đọc từ IndexedDB trước
-        let list = await getPOIsFromDB(lang);
-        let found = list.find((p) => p.poi_id === poiId);
+        // Luôn đồng bộ dữ liệu mới nhất (hỗ trợ HTTP 304 cache)
+        const result = await syncPOIs(lang);
+        let found = result.pois.find((p) => p.poi_id === poiId);
 
         if (!found) {
-          // Thử sync nếu chưa có trong DB
-          const result = await syncPOIs(lang);
-          found = result.pois.find((p) => p.poi_id === poiId);
+          const list = await getPOIsFromDB(lang);
+          found = list.find((p) => p.poi_id === poiId);
         }
 
         if (found) {

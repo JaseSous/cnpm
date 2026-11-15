@@ -51,7 +51,7 @@ if settings.GEMINI_API_KEY and settings.GEMINI_API_KEY not in ("your-gemini-api-
     try:
         from google import genai
         _gemini_client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        logger.info(f"Đã khởi tạo Gemini Client cho dịch thuật (Model: {getattr(settings, 'GEMINI_MODEL', 'gemini-3.8-flash')})")
+        logger.info(f"Đã khởi tạo Gemini Client cho dịch thuật (Model: {getattr(settings, 'GEMINI_MODEL', 'gemini-3.5-flash')})")
     except Exception as e:
         logger.warning(f"Không thể khởi tạo Gemini Client cho dịch thuật: {e}")
 
@@ -67,7 +67,7 @@ async def translate_with_gemini(
         return None
 
     try:
-        model = getattr(settings, "GEMINI_MODEL", "gemini-3.8-flash")
+        model = getattr(settings, "GEMINI_MODEL", "gemini-3.5-flash")
         prompt = (
             f"You are a professional multilingual translator for Buddhist pagoda tourism in Vietnam.\n"
             f"Translate the following pagoda attraction title and description from '{source_lang}' to target language '{target_lang}'.\n"

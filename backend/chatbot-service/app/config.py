@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     # Google Gemini AI
     GEMINI_API_KEY: str = "your-gemini-api-key"
     EMBEDDING_MODEL: str = "gemini-embedding-001"
-    LLM_MODEL: str = "gemini-3.8-flash"
+    LLM_MODEL: str = "gemini-3.5-flash"
 
     # Qdrant Vector Database
     QDRANT_URL: Optional[str] = "http://localhost:6333"
