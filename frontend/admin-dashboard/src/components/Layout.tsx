@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { ErrorBoundary } from './ErrorBoundary';
 import { 
   QrCode, 
   MapPin, 
@@ -92,7 +93,9 @@ export const Layout: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto min-h-screen">
-        <Outlet />
+        <ErrorBoundary>
+          <Outlet />
+        </ErrorBoundary>
       </main>
     </div>
   );

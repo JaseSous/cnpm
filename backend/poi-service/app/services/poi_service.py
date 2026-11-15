@@ -369,11 +369,17 @@ async def get_pipeline_status_overview(db: AsyncSession) -> List[Dict[str, Any]]
         overview.append({
             "poi_id": p.poi_id,
             "original_title": p.original_title,
+            "original_description": p.original_description,
             "original_language_code": p.original_language_code,
+            "latitude": p.latitude,
+            "longitude": p.longitude,
+            "trigger_radius": p.trigger_radius,
+            "thumbnail_url": p.thumbnail_url,
             "revision": p.revision,
             "vector_status": p.vector_status,
             "vector_last_error": p.vector_last_error,
             "vector_attempt_count": p.vector_attempt_count,
+            "created_at": p.created_at.isoformat() if p.created_at else None,
             "localizations": [
                 {
                     "language_code": loc.language_code,

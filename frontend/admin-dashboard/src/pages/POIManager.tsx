@@ -94,12 +94,12 @@ export const POIManager: React.FC = () => {
   const handleOpenEditModal = (poi: POIItem) => {
     setEditingPoi(poi);
     setFormData({
-      original_title: poi.original_title,
-      original_language_code: poi.original_language_code,
-      original_description: poi.original_description,
-      latitude: poi.latitude,
-      longitude: poi.longitude,
-      trigger_radius: poi.trigger_radius,
+      original_title: poi.original_title || '',
+      original_language_code: poi.original_language_code || 'vi',
+      original_description: poi.original_description || '',
+      latitude: poi.latitude ?? 16.1001,
+      longitude: poi.longitude ?? 108.2775,
+      trigger_radius: poi.trigger_radius ?? 30,
       thumbnail_url: poi.thumbnail_url || '',
     });
     setIsModalOpen(true);
@@ -159,7 +159,7 @@ export const POIManager: React.FC = () => {
   };
 
   const filteredPois = pois.filter((p) =>
-    p.original_title.toLowerCase().includes(searchTerm.toLowerCase())
+    (p.original_title || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -251,13 +251,15 @@ export const POIManager: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 font-mono text-xs text-slate-400">
-                      {poi.latitude.toFixed(4)}, {poi.longitude.toFixed(4)}
+                      {poi.latitude != null && poi.longitude != null
+                        ? `${Number(poi.latitude).toFixed(4)}, ${Number(poi.longitude).toFixed(4)}`
+                        : 'Chưa có tọa độ'}
                     </td>
                     <td className="px-6 py-4 text-slate-300 font-medium">
-                      {poi.trigger_radius} m
+                      {poi.trigger_radius != null ? `${poi.trigger_radius} m` : '30 m'}
                     </td>
                     <td className="px-6 py-4 font-mono font-bold text-amber-400">
-                      v{poi.revision}
+                      v{poi.revision ?? 1}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
@@ -270,7 +272,7 @@ export const POIManager: React.FC = () => {
                         {poi.vector_status === 'Synced' && <CheckCircle className="w-3.5 h-3.5" />}
                         {poi.vector_status === 'Pending' && <Clock className="w-3.5 h-3.5" />}
                         {poi.vector_status === 'Failed' && <AlertCircle className="w-3.5 h-3.5" />}
-                        <span>{poi.vector_status}</span>
+                        <span>{poi.vector_status || 'Pending'}</span>
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right space-x-2">
