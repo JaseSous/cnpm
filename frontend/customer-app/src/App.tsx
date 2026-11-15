@@ -12,6 +12,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<LanguageSelectPage />} />
           <Route path="/auth" element={<QRAuthPage />} />
+          <Route path="/access" element={<QRAuthPage />} />
           <Route path="/map" element={<MapAndPOIListPage />} />
           <Route path="/poi/:id" element={<POIDetailPage />} />
           <Route path="/chat" element={<ChatbotPage />} />

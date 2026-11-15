@@ -29,6 +29,14 @@ export default function LanguageSelectPage() {
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    // Nếu URL chứa mã vé shorted_code (do quét QR), chuyển hướng ngay sang /auth để tự động kích hoạt
+    const hash = window.location.hash;
+    const search = window.location.search;
+    if (hash.includes('code=') || search.includes('code=')) {
+      navigate(`/auth${search}${hash}`, { replace: true });
+      return;
+    }
+
     // Nếu đã chọn ngôn ngữ trước đó, tự động chuyển tiếp
     const savedLang = localStorage.getItem('customer_lang');
     if (savedLang) {

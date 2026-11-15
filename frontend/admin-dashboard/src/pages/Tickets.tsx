@@ -10,7 +10,8 @@ import {
   AlertCircle, 
   Clock, 
   DollarSign,
-  Printer
+  Printer,
+  ExternalLink
 } from 'lucide-react';
 
 interface TicketPackage {
@@ -105,9 +106,39 @@ export const Tickets: React.FC = () => {
     }
   };
 
-  // URL nhúng vào mã QR để du khách quét
+  // Xác định Base URL của Customer App linh hoạt cho cả Local/LAN và Production Cloud
+  const getCustomerAppBaseUrl = () => {
+    // 1. Ưu tiên biến môi trường cấu hình sẵn (khi deploy Vercel)
+    const envUrl = import.meta.env.VITE_CUSTOMER_APP_URL;
+    if (envUrl) {
+      return envUrl.replace(/\/$/, '');
+    }
+
+    const { protocol, hostname, port } = window.location;
+
+    // 2. Chạy Localhost hoặc mạng LAN nội bộ
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('172.')
+    ) {
+      const customerPort = port === '5174' ? '5173' : '3000';
+      return `${protocol}//${hostname}:${customerPort}`;
+    }
+
+    // 3. Chạy trên Cloud / Vercel (không dùng port nội bộ)
+    if (hostname.includes('admin')) {
+      return `${protocol}//${hostname.replace('admin', 'customer')}`;
+    }
+
+    return `${protocol}//${hostname}`;
+  };
+
+  // URL nhúng vào mã QR để du khách quét (trỏ vào route /auth#code=...)
   const clientAppUrl = currentTicket
-    ? `${window.location.protocol}//${window.location.hostname}:3000/#code=${currentTicket.shorted_code}`
+    ? `${getCustomerAppBaseUrl()}/auth#code=${currentTicket.shorted_code}`
     : '';
 
   return (
@@ -249,8 +280,21 @@ export const Tickets: React.FC = () => {
                 </div>
               </div>
 
-              <div className="text-xs text-slate-400 max-w-md">
+              <div className="text-xs text-slate-400 max-w-md space-y-2">
                 <p>Hướng dẫn du khách: Dùng camera điện thoại quét mã QR trên để tự động mở ứng dụng và kích hoạt thuyết minh.</p>
+                <div className="flex items-center justify-center gap-1.5 text-[11px] bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/80 break-all text-slate-400">
+                  <span className="font-semibold text-slate-400 shrink-0">Link:</span>
+                  <a 
+                    href={clientAppUrl} 
+                    target="_blank" 
+                    rel="noreferrer" 
+                    className="text-amber-400 hover:underline inline-flex items-center gap-1 font-mono"
+                    title="Bấm để kiểm tra mở trang Client"
+                  >
+                    <span>{clientAppUrl}</span>
+                    <ExternalLink className="w-3 h-3 shrink-0" />
+                  </a>
+                </div>
               </div>
 
               <div className="flex items-center space-x-3 pt-2">
