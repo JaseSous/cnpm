@@ -87,9 +87,12 @@ class EmbeddingService:
         """Tạo vector embedding cho một đoạn văn bản (768 chiều)"""
         if self._client:
             try:
+                from google.genai import types
+                config = types.EmbedContentConfig(output_dimensionality=768)
                 response = await self._client.aio.models.embed_content(
                     model=self.model,
-                    contents=text
+                    contents=text,
+                    config=config
                 )
                 if hasattr(response, "embedding") and hasattr(response.embedding, "values"):
                     return list(response.embedding.values)

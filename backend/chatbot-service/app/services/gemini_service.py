@@ -40,9 +40,12 @@ class GeminiService:
         """Tạo embedding 768 chiều cho câu hỏi"""
         if self._client:
             try:
+                from google.genai import types
+                config = types.EmbedContentConfig(output_dimensionality=768)
                 response = await self._client.aio.models.embed_content(
                     model=self.embedding_model,
-                    contents=text
+                    contents=text,
+                    config=config
                 )
                 if hasattr(response, "embedding") and hasattr(response.embedding, "values"):
                     return list(response.embedding.values)

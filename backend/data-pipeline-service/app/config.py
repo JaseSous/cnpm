@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     # Google Gemini AI Embedding
     GEMINI_API_KEY: str = "your-gemini-api-key"
-    EMBEDDING_MODEL: str = "text-embedding-004"
+    EMBEDDING_MODEL: str = "gemini-embedding-001"
 
     # Supabase Storage cho Audio Files
     SUPABASE_URL: Optional[str] = "https://your-project-id.supabase.co"
