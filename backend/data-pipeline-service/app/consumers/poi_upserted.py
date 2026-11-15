@@ -124,18 +124,18 @@ async def process_poi_upserted(
                     except Exception:
                         pass
 
-                # Cập nhật trạng thái Ready cho ngôn ngữ này
+                # Cập nhật trạng thái Done cho ngôn ngữ này
                 await poi_grpc_client.update_localization_status(
                     poi_id=poi_id,
                     language_code=lang,
-                    status="Ready",
+                    status="Done",
                     applied_revision=revision,
                     translated_title=t_title,
                     translated_description=t_desc,
                     audio_url=audio_url,
                     event_id=event_id
                 )
-                logger.info(f"POI #{poi_id} ngôn ngữ '{lang}' đã Ready! Audio: {audio_url}")
+                logger.info(f"POI #{poi_id} ngôn ngữ '{lang}' đã Done! Audio: {audio_url}")
 
             except Exception as lang_err:
                 logger.error(f"Lỗi khi xử lý ngôn ngữ '{lang}' cho POI #{poi_id}: {lang_err}")

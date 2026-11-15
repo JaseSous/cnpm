@@ -67,7 +67,7 @@ async def update_localization_status(data: UpdateLocalizationPayload):
                 )
                 session.add(loc)
 
-            if data.status == "Done":
+            if data.status in ["Done", "Ready"]:
                 loc.status = "Done"
                 loc.translated_title = data.translated_title or ""
                 loc.translated_description = data.translated_description or ""
