@@ -37,10 +37,10 @@ async def process_poi_upserted(
     event_id = payload.get("event_id", "")
     poi_id = payload.get("poi_id")
     revision = payload.get("revision", 1)
-    title = payload.get("title", "")
-    description = payload.get("description", "")
-    primary_language = payload.get("primary_language", "vi")
-    target_languages = payload.get("target_languages") or DEFAULT_TARGET_LANGUAGES
+    title = payload.get("title") or payload.get("original_title", "")
+    description = payload.get("description") or payload.get("original_description", "")
+    primary_language = payload.get("primary_language") or payload.get("original_language_code", "vi")
+    target_languages = payload.get("languages_to_process") or payload.get("target_languages") or DEFAULT_TARGET_LANGUAGES
     attempt_count = payload.get("attempt_count", 0)
 
     if not poi_id:

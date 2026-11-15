@@ -62,6 +62,10 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_KEY
         sync: false
+      - key: POI_SERVICE_URL
+        value: https://linh-ung-poi-service.onrender.com
+      - key: CHATBOT_SERVICE_URL
+        value: https://linh-ung-chatbot-service.onrender.com
 
   # 4. Chatbot AI Service (UC03, UC12)
   - type: web
@@ -104,3 +108,7 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_KEY
         sync: false
+      - key: POI_SERVICE_URL
+        value: https://linh-ung-poi-service.onrender.com
+      - key: CHATBOT_SERVICE_URL
+        value: https://linh-ung-chatbot-service.onrender.com

@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import init_db
 from app.routes.pois import router as poi_router
 from app.routes.languages import router as language_router
+from app.routes.internal import router as internal_router
 from app.services.outbox_publisher import outbox_publisher
 from app.grpc_server import grpc_server_manager
 
@@ -46,6 +47,7 @@ app.add_middleware(
 
 app.include_router(poi_router)
 app.include_router(language_router)
+app.include_router(internal_router)
 
 @app.get("/health", tags=["Health"])
 async def health_check():
