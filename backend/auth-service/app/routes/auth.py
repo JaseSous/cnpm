@@ -12,8 +12,10 @@ from app.schemas.auth import (
     CustomerTokenResponse
 )
 from app.schemas.ticket import CreateTicketRequest, TicketResponse, TicketPackageResponse
+from app.schemas.dashboard import DashboardStatsResponse
 from app.services.auth_service import login_user
 from app.services.ticket_service import create_cash_ticket, verify_and_activate_ticket
+from app.services.dashboard_service import get_dashboard_stats
 from app.services.security import get_current_user_payload, require_roles
 from app.services.redis_client import get_redis
 
@@ -106,3 +108,15 @@ async def verify_code(
         client_ip = "127.0.0.1"
 
     return await verify_and_activate_ticket(db, redis_client, body.shorted_code, client_ip)
+
+@router.get(
+    "/dashboard-stats",
+    response_model=DashboardStatsResponse,
+    summary="Thống kê người dùng cho Dashboard",
+    description="Truy vấn dữ liệu thực tế từ database: số người vào hôm nay, tổng số người từng vào và số người đang dùng hệ thống."
+)
+async def get_dashboard_statistics(
+    db: AsyncSession = Depends(get_db),
+    current_user_payload: dict = Depends(require_roles(["admin", "staff"]))
+):
+    return await get_dashboard_stats(db)

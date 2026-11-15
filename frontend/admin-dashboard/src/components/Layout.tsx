@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ErrorBoundary } from './ErrorBoundary';
 import { 
+  LayoutDashboard,
   QrCode, 
   MapPin, 
   Activity, 
@@ -21,6 +22,7 @@ export const Layout: React.FC = () => {
   };
 
   const navItems = [
+    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['admin', 'staff'] },
     { name: 'Bán vé & Sinh mã QR', path: '/tickets', icon: QrCode, roles: ['staff', 'admin'] },
     { name: 'Quản lý điểm POI', path: '/pois', icon: MapPin, roles: ['admin'] },
     { name: 'Giám sát Pipeline', path: '/pipeline', icon: Activity, roles: ['admin'] },

@@ -47,7 +47,12 @@ def check_rbac_permission(path: str, method: str, role: str) -> Tuple[bool, str]
 
     # Tuyến đường cho Staff
     if role == "staff":
-        if path.startswith("/api/auth/tickets") or path.startswith("/api/auth/packages") or path.startswith("/api/auth/me"):
+        if (
+            path.startswith("/api/auth/tickets")
+            or path.startswith("/api/auth/packages")
+            or path.startswith("/api/auth/me")
+            or path.startswith("/api/auth/dashboard-stats")
+        ):
             return True, "ALLOWED"
         if method == "GET" and (path.startswith("/api/pois") or path.startswith("/api/languages")):
             return True, "ALLOWED"

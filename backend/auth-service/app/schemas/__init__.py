@@ -11,6 +11,10 @@ from app.schemas.ticket import (
     TicketResponse,
     TicketPackageResponse
 )
+from app.schemas.dashboard import (
+    DashboardStatsResponse,
+    RecentSessionItem
+)
 
 __all__ = [
     "LoginRequest",
@@ -21,5 +25,7 @@ __all__ = [
     "ErrorResponse",
     "CreateTicketRequest",
     "TicketResponse",
-    "TicketPackageResponse"
+    "TicketPackageResponse",
+    "DashboardStatsResponse",
+    "RecentSessionItem"
 ]

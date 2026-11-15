@@ -85,3 +85,30 @@ async def test_get_me_unauthorized(client: AsyncClient):
     """Gọi /api/auth/me không có token trả về 401"""
     res = await client.get("/api/auth/me")
     assert res.status_code == 401
+
+@pytest.mark.asyncio
+async def test_get_dashboard_stats_success(client: AsyncClient):
+    """Lấy dữ liệu thống kê Dashboard với token admin"""
+    login_res = await client.post("/api/auth/login", json={
+        "username": "admin",
+        "password": "admin123"
+    })
+    token = login_res.json()["access_token"]
+
+    res = await client.get("/api/auth/dashboard-stats", headers={"Authorization": f"Bearer {token}"})
+    assert res.status_code == 200
+    data = res.json()
+    assert "users_today" in data
+    assert "total_users" in data
+    assert "active_users" in data
+    assert isinstance(data["users_today"], int)
+    assert isinstance(data["total_users"], int)
+    assert isinstance(data["active_users"], int)
+    assert "server_time" in data
+    assert "recent_sessions" in data
+
+@pytest.mark.asyncio
+async def test_get_dashboard_stats_unauthorized(client: AsyncClient):
+    """Gọi /api/auth/dashboard-stats không có token trả về 401"""
+    res = await client.get("/api/auth/dashboard-stats")
+    assert res.status_code == 401
