@@ -1,16 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '../api/client';
 import { 
-  Users, 
-  Radio, 
   RefreshCw, 
   AlertCircle, 
   Clock, 
   Calendar, 
   TrendingUp, 
-  ShieldCheck, 
   CheckCircle2, 
-  Database
+  Radio,
+  Ticket
 } from 'lucide-react';
 
 interface RecentSession {
@@ -24,9 +22,10 @@ interface RecentSession {
 }
 
 interface DashboardStats {
-  users_today: number;
-  total_users: number;
-  active_users: number;
+  codes_created_today: number;
+  total_codes_created: number;
+  pending_codes: number;
+  active_sessions: number;
   server_time: string;
   recent_sessions: RecentSession[];
 }
@@ -103,7 +102,7 @@ export const Dashboard: React.FC = () => {
             Dashboard Thống kê Hệ thống
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            Số liệu người dùng được truy vấn trực tiếp từ bảng <code className="text-amber-400 bg-slate-900 px-1 py-0.5 rounded">PaymentSessions</code> trong cơ sở dữ liệu.
+            Số liệu thống kê mã vé và phiên truy cập được truy vấn trực tiếp từ cơ sở dữ liệu.
           </p>
         </div>
 
@@ -144,9 +143,9 @@ export const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* 3 Primary Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Card 1: Người dùng vào trong ngày hôm nay */}
+      {/* 4 Primary Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Card 1: Số mã được tạo hôm nay */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 to-slate-900/60 border border-slate-800 p-6 shadow-xl hover:border-emerald-500/40 transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
@@ -160,23 +159,23 @@ export const Dashboard: React.FC = () => {
           <div className="mt-4">
             <div className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">
               {isLoading ? (
-                <div className="h-10 w-24 bg-slate-800 rounded animate-pulse" />
+                <div className="h-10 w-20 bg-slate-800 rounded animate-pulse" />
               ) : (
-                stats?.users_today ?? 0
+                stats?.codes_created_today ?? 0
               )}
             </div>
-            <p className="text-sm font-semibold text-emerald-400 mt-1 flex items-center gap-1">
-              Người dùng vào hôm nay
+            <p className="text-sm font-semibold text-emerald-400 mt-1">
+              Số mã được tạo hôm nay
             </p>
           </div>
 
           <div className="mt-4 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
             <span>Từ 00:00:00 (GMT+7)</span>
-            <span className="text-slate-500">activated_at</span>
+            <span className="text-slate-500">created_at</span>
           </div>
         </div>
 
-        {/* Card 2: Tổng người dùng đã từng vào hệ thống */}
+        {/* Card 2: Số mã được tạo toàn thời gian */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 to-slate-900/60 border border-slate-800 p-6 shadow-xl hover:border-blue-500/40 transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
@@ -190,30 +189,60 @@ export const Dashboard: React.FC = () => {
           <div className="mt-4">
             <div className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">
               {isLoading ? (
-                <div className="h-10 w-24 bg-slate-800 rounded animate-pulse" />
+                <div className="h-10 w-20 bg-slate-800 rounded animate-pulse" />
               ) : (
-                stats?.total_users ?? 0
+                stats?.total_codes_created ?? 0
               )}
             </div>
-            <p className="text-sm font-semibold text-blue-400 mt-1 flex items-center gap-1">
-              Tổng số người đã từng vào
+            <p className="text-sm font-semibold text-blue-400 mt-1">
+              Số mã tạo toàn thời gian
             </p>
           </div>
 
           <div className="mt-4 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-            <span>Tổng phiên kích hoạt thành công</span>
-            <span className="text-slate-500">status = Success</span>
+            <span>Tổng phiên phát hành</span>
+            <span className="text-slate-500">Tất cả phiên</span>
           </div>
         </div>
 
-        {/* Card 3: Số người đang dùng hệ thống */}
+        {/* Card 3: Số mã còn chờ kích hoạt */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 to-slate-900/60 border border-slate-800 p-6 shadow-xl hover:border-amber-500/40 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              Thời gian thực
-              <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Chờ kích hoạt
             </span>
             <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+              <Clock className="w-5 h-5" />
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <div className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">
+              {isLoading ? (
+                <div className="h-10 w-20 bg-slate-800 rounded animate-pulse" />
+              ) : (
+                stats?.pending_codes ?? 0
+              )}
+            </div>
+            <p className="text-sm font-semibold text-amber-400 mt-1">
+              Số mã còn chờ kích hoạt
+            </p>
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+            <span>Chưa được quét/đổi</span>
+            <span className="text-slate-500">status = Pending</span>
+          </div>
+        </div>
+
+        {/* Card 4: Số phiên người dùng đang hoạt động (chưa hết hạn token) */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 to-slate-900/60 border border-slate-800 p-6 shadow-xl hover:border-cyan-500/40 transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              Đang hoạt động
+              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+            </span>
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
               <Radio className="w-5 h-5" />
             </div>
           </div>
@@ -221,42 +250,20 @@ export const Dashboard: React.FC = () => {
           <div className="mt-4">
             <div className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">
               {isLoading ? (
-                <div className="h-10 w-24 bg-slate-800 rounded animate-pulse" />
+                <div className="h-10 w-20 bg-slate-800 rounded animate-pulse" />
               ) : (
-                stats?.active_users ?? 0
+                stats?.active_sessions ?? 0
               )}
             </div>
-            <p className="text-sm font-semibold text-amber-400 mt-1 flex items-center gap-1">
-              Số người đang dùng hệ thống
+            <p className="text-sm font-semibold text-cyan-400 mt-1">
+              Số phiên đang hoạt động
             </p>
           </div>
 
           <div className="mt-4 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-            <span>Phiên truy cập còn hiệu lực</span>
+            <span>Chưa hết hạn token</span>
             <span className="text-slate-500">token_expires_at &gt; now</span>
           </div>
-        </div>
-      </div>
-
-      {/* Database Transparency & Methodology Box */}
-      <div className="p-5 rounded-2xl bg-slate-900/40 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 flex-shrink-0 mt-0.5">
-            <Database className="w-4 h-4" />
-          </div>
-          <div>
-            <h4 className="text-sm font-semibold text-slate-200">
-              Quy chuẩn trích xuất số liệu từ Cơ sở dữ liệu (Database-Driven)
-            </h4>
-            <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
-              Các chỉ số trên được truy vấn trực tiếp từ bảng <code className="text-amber-400">PaymentSessions</code> không qua mô phỏng. 
-              Số người đang dùng được định nghĩa chuẩn xác theo các phiên vé có <code className="text-amber-400">status = &apos;Success&apos;</code> và thời hạn token còn hiệu lực.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 text-xs font-medium text-slate-400 bg-slate-800/60 px-3 py-1.5 rounded-xl border border-slate-700/50 flex-shrink-0">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          <span>Strict PRD Schema</span>
         </div>
       </div>
 
@@ -264,9 +271,9 @@ export const Dashboard: React.FC = () => {
       <div className="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden shadow-xl">
         <div className="p-5 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <Users className="w-5 h-5 text-amber-500" />
+            <Ticket className="w-5 h-5 text-amber-500" />
             <h3 className="text-base font-bold text-white">
-              Lịch sử các phiên người dùng gần nhất (PaymentSessions)
+              Lịch sử các phiên mã vé gần nhất (PaymentSessions)
             </h3>
           </div>
           <span className="text-xs text-slate-400 bg-slate-800 px-2.5 py-1 rounded-lg">
@@ -298,7 +305,7 @@ export const Dashboard: React.FC = () => {
               ) : !stats?.recent_sessions || stats.recent_sessions.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-5 py-10 text-center text-slate-500">
-                    Chưa có phiên người dùng nào trong cơ sở dữ liệu.
+                    Chưa có phiên mã vé nào trong cơ sở dữ liệu.
                   </td>
                 </tr>
               ) : (
@@ -327,7 +334,7 @@ export const Dashboard: React.FC = () => {
                         ) : isSuccess ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">
                             <CheckCircle2 className="w-3 h-3 text-slate-400" />
-                            Đã hoàn thành
+                            Đã kích hoạt
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">

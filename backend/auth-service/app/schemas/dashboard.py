@@ -12,8 +12,9 @@ class RecentSessionItem(BaseModel):
     token_expires_at: Optional[datetime] = None
 
 class DashboardStatsResponse(BaseModel):
-    users_today: int = Field(..., description="Số lượng người dùng đã vào hệ thống trong ngày hôm nay")
-    total_users: int = Field(..., description="Tổng số lượng người dùng đã từng vào hệ thống")
-    active_users: int = Field(..., description="Số người đang dùng hệ thống (phiên truy cập còn hiệu lực)")
+    codes_created_today: int = Field(..., description="Số mã được tạo hôm nay")
+    total_codes_created: int = Field(..., description="Số mã được tạo toàn thời gian")
+    pending_codes: int = Field(..., description="Số mã còn chờ kích hoạt")
+    active_sessions: int = Field(..., description="Số phiên người dùng đang hoạt động (chưa hết hạn token)")
     server_time: datetime = Field(..., description="Thời gian máy chủ tại thời điểm truy vấn")
-    recent_sessions: List[RecentSessionItem] = Field(default_factory=list, description="Danh sách các phiên kích hoạt gần nhất")
+    recent_sessions: List[RecentSessionItem] = Field(default_factory=list, description="Danh sách các phiên thanh toán / kích hoạt gần nhất")

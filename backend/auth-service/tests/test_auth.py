@@ -98,12 +98,14 @@ async def test_get_dashboard_stats_success(client: AsyncClient):
     res = await client.get("/api/auth/dashboard-stats", headers={"Authorization": f"Bearer {token}"})
     assert res.status_code == 200
     data = res.json()
-    assert "users_today" in data
-    assert "total_users" in data
-    assert "active_users" in data
-    assert isinstance(data["users_today"], int)
-    assert isinstance(data["total_users"], int)
-    assert isinstance(data["active_users"], int)
+    assert "codes_created_today" in data
+    assert "total_codes_created" in data
+    assert "pending_codes" in data
+    assert "active_sessions" in data
+    assert isinstance(data["codes_created_today"], int)
+    assert isinstance(data["total_codes_created"], int)
+    assert isinstance(data["pending_codes"], int)
+    assert isinstance(data["active_sessions"], int)
     assert "server_time" in data
     assert "recent_sessions" in data
 

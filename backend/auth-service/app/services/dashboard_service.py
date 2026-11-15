@@ -18,42 +18,48 @@ def get_start_of_today_utc(tz_offset_hours: int = 7) -> datetime:
 async def get_dashboard_stats(db: AsyncSession) -> DashboardStatsResponse:
     """
     Truy vấn số liệu thực tế từ bảng PaymentSessions:
-    1. Số lượng người dùng đã vào hệ thống hôm nay (status = 'Success' và activated_at >= đầu ngày hôm nay GMT+7)
-    2. Tổng số lượng người dùng đã từng vào hệ thống (status = 'Success')
-    3. Số người đang dùng hệ thống (status = 'Success' và token_expires_at > thời điểm hiện tại UTC)
+    1. Số mã được tạo hôm nay (created_at >= đầu ngày hôm nay GMT+7)
+    2. Số mã được tạo toàn thời gian (tổng số bản ghi PaymentSessions)
+    3. Số mã còn chờ kích hoạt (status = 'Pending')
+    4. Số phiên người dùng đang hoạt động (status = 'Success' và token_expires_at > now_utc)
     """
     start_of_today_utc = get_start_of_today_utc(tz_offset_hours=7)
     now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
     local_tz = timezone(timedelta(hours=7))
     server_time = datetime.now(local_tz)
 
-    # 1. Số lượng người dùng đã vào hệ thống trong ngày hôm nay
+    # 1. Số mã được tạo hôm nay
     today_res = await db.execute(
         select(func.count(PaymentSession.session_id)).where(
-            PaymentSession.status == "Success",
-            PaymentSession.activated_at >= start_of_today_utc
+            PaymentSession.created_at >= start_of_today_utc
         )
     )
-    users_today = today_res.scalar() or 0
+    codes_created_today = today_res.scalar() or 0
 
-    # 2. Tổng số lượng người dùng đã từng vào hệ thống
+    # 2. Số mã được tạo toàn thời gian
     total_res = await db.execute(
+        select(func.count(PaymentSession.session_id))
+    )
+    total_codes_created = total_res.scalar() or 0
+
+    # 3. Số mã còn chờ kích hoạt
+    pending_res = await db.execute(
         select(func.count(PaymentSession.session_id)).where(
-            PaymentSession.status == "Success"
+            PaymentSession.status == "Pending"
         )
     )
-    total_users = total_res.scalar() or 0
+    pending_codes = pending_res.scalar() or 0
 
-    # 3. Số người đang dùng hệ thống (phiên còn hiệu lực: token_expires_at > now)
+    # 4. Số phiên người dùng đang hoạt động (chưa hết hạn token)
     active_res = await db.execute(
         select(func.count(PaymentSession.session_id)).where(
             PaymentSession.status == "Success",
             PaymentSession.token_expires_at > now_utc
         )
     )
-    active_users = active_res.scalar() or 0
+    active_sessions = active_res.scalar() or 0
 
-    # Lấy danh sách phiên gần đây để hiển thị trực quan trong Dashboard
+    # Lấy danh sách 10 phiên gần nhất
     recent_res = await db.execute(
         select(PaymentSession)
         .order_by(desc(PaymentSession.created_at))
@@ -74,9 +80,10 @@ async def get_dashboard_stats(db: AsyncSession) -> DashboardStatsResponse:
     ]
 
     return DashboardStatsResponse(
-        users_today=users_today,
-        total_users=total_users,
-        active_users=active_users,
+        codes_created_today=codes_created_today,
+        total_codes_created=total_codes_created,
+        pending_codes=pending_codes,
+        active_sessions=active_sessions,
         server_time=server_time,
         recent_sessions=recent_items
     )
