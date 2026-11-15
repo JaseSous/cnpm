@@ -72,8 +72,12 @@ async def process_poi_upserted(
         temp_audio_dir.mkdir(parents=True, exist_ok=True)
 
         # 2. Xử lý đa ngôn ngữ: Dịch thuật, TTS và Upload
-        for lang in target_languages:
+        for idx, lang in enumerate(target_languages):
             try:
+                # Giãn cách 0.5s giữa các ngôn ngữ để tránh chạm Rate-limit (5 req/s) của dịch vụ dịch thuật miễn phí
+                if idx > 0:
+                    await asyncio.sleep(0.5)
+
                 # Đánh dấu trạng thái đang dịch
                 await poi_grpc_client.update_localization_status(
                     poi_id=poi_id,
