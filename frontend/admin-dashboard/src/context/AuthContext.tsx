@@ -26,7 +26,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (username: string, password: string) => {
     const res = await apiClient.post('/api/auth/login', { username, password });
-    const { access_token, user_id, role, username: resUser } = res.data;
+    const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+    const { access_token, user_id, role, username: resUser } = data || {};
+
+    if (!access_token) {
+      throw new Error('Không nhận được access_token hợp lệ từ máy chủ.');
+    }
 
     const userInfo: UserInfo = { user_id, username: resUser, role };
     sessionStorage.setItem('access_token', access_token);

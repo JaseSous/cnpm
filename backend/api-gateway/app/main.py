@@ -155,6 +155,8 @@ async def reverse_proxy(request: Request, path: str):
     headers = dict(request.headers)
     headers.pop("host", None)
     headers.pop("content-length", None)
+    # Bắt buộc downstream trả về dữ liệu thô chưa nén để Gateway đọc và chuyển tiếp an toàn
+    headers["accept-encoding"] = "identity"
 
     try:
         body = await request.body()

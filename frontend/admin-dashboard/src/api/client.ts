@@ -32,10 +32,13 @@ const attachAuthInterceptor = (instance: any) => {
     (response: any) => response,
     (error: any) => {
       if (error.response && error.response.status === 401) {
-        sessionStorage.removeItem('access_token');
-        sessionStorage.removeItem('user_info');
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login';
+        const isLoginRequest = error.config?.url?.includes('/api/auth/login');
+        if (!isLoginRequest) {
+          sessionStorage.removeItem('access_token');
+          sessionStorage.removeItem('user_info');
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login';
+          }
         }
       }
       return Promise.reject(error);

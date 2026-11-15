@@ -7,6 +7,7 @@ PUBLIC_PATHS = [
     "/api/gateway/health",
     "/api/auth/login",
     "/api/auth/verify-code",
+    "/api/auth/packages",
     "/docs",
     "/openapi.json",
     "/redoc"
@@ -46,7 +47,7 @@ def check_rbac_permission(path: str, method: str, role: str) -> Tuple[bool, str]
 
     # Tuyến đường cho Staff
     if role == "staff":
-        if path.startswith("/api/auth/tickets") or path.startswith("/api/auth/me"):
+        if path.startswith("/api/auth/tickets") or path.startswith("/api/auth/packages") or path.startswith("/api/auth/me"):
             return True, "ALLOWED"
         if method == "GET" and (path.startswith("/api/pois") or path.startswith("/api/languages")):
             return True, "ALLOWED"
