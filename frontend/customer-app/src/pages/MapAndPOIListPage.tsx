@@ -69,11 +69,22 @@ const userLocationIcon = L.divIcon({
   iconAnchor: [11, 11],
 });
 
-function MapController({ center }: { center: [number, number] }) {
+function MapController({ center, activeTab }: { center: [number, number]; activeTab: 'map' | 'list' }) {
   const map = useMap();
   useEffect(() => {
     map.setView(center, map.getZoom());
   }, [center, map]);
+
+  useEffect(() => {
+    if (activeTab === 'map') {
+      map.invalidateSize();
+      const timer = setTimeout(() => {
+        map.invalidateSize();
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab, map]);
+
   return null;
 }
 
@@ -248,11 +259,12 @@ export default function MapAndPOIListPage() {
           </div>
         ) : (
           <>
-            {/* View Bản đồ */}
-            <div className={`flex-1 relative ${activeTab === 'map' ? 'block' : 'hidden'}`}>
+            {/* View Bản đồ: dùng absolute inset-0 để giải quyết triệt để lỗi chiều cao flexbox trên Desktop và Android */}
+            <div className={`absolute inset-0 ${activeTab === 'map' ? 'block' : 'hidden'}`}>
               <MapContainer
                 center={mapCenter}
                 zoom={17}
+                className="w-full h-full"
                 style={{ width: '100%', height: '100%' }}
                 zoomControl={false}
               >
@@ -260,7 +272,7 @@ export default function MapAndPOIListPage() {
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
-                <MapController center={mapCenter} />
+                <MapController center={mapCenter} activeTab={activeTab} />
 
                 {/* Vị trí của du khách */}
                 {currentCoords && (
