@@ -76,7 +76,7 @@ def get_downstream_url(path: str) -> Optional[str]:
     """Ánh xạ đường dẫn tới URL của microservice tương ứng"""
     if path.startswith("/api/auth"):
         return settings.AUTH_SERVICE_URL
-    elif path.startswith("/api/pois") or path.startswith("/api/languages"):
+    elif path.startswith("/api/pois") or path.startswith("/api/languages") or path.startswith("/media"):
         return settings.POI_SERVICE_URL
     elif path.startswith("/api/chatbot"):
         return settings.CHATBOT_SERVICE_URL

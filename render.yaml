@@ -59,9 +59,9 @@ services:
       - key: REDIS_URL
         sync: false
       - key: SUPABASE_URL
-        sync: false
+        value: https://vaupfgylzvanpxeekytm.supabase.co
       - key: SUPABASE_SERVICE_KEY
-        sync: false
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhdXBmZ3lsenZhbnB4ZWVreXRtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5NDcwNjg0OSwiZXhwIjoyMTEwMjgyODQ5fQ.rZyB5jqazJVkmDM058f_JriSxKImxFj_TKZY0eoAUzI
       - key: POI_SERVICE_URL
         value: https://linh-ung-poi-service.onrender.com
       - key: CHATBOT_SERVICE_URL
@@ -105,9 +105,9 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: SUPABASE_URL
-        sync: false
+        value: https://vaupfgylzvanpxeekytm.supabase.co
       - key: SUPABASE_SERVICE_KEY
-        sync: false
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhdXBmZ3lsenZhbnB4ZWVreXRtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5NDcwNjg0OSwiZXhwIjoyMTEwMjgyODQ5fQ.rZyB5jqazJVkmDM058f_JriSxKImxFj_TKZY0eoAUzI
       - key: POI_SERVICE_URL
         value: https://linh-ung-poi-service.onrender.com
       - key: CHATBOT_SERVICE_URL

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { POI } from '../types';
+import { getMediaUrl, DEFAULT_POI_IMAGE } from '../api/client';
 import { syncPOIs } from '../services/poiSync';
 import { calculateHaversineDistance, useGPSTracker } from '../services/gpsEngine';
 import { getCachedAudioUrl } from '../services/audioCache';
@@ -335,15 +336,14 @@ export default function MapAndPOIListPage() {
                     className="p-3.5 bg-white rounded-2xl border border-stone-200/80 shadow-sm hover:shadow-md transition-all active:scale-[0.99] flex items-center gap-3.5 cursor-pointer"
                   >
                     <div className="relative w-16 h-16 rounded-xl bg-amber-50 border border-amber-200 overflow-hidden shrink-0 flex items-center justify-center">
-                      {poi.thumbnail_url ? (
-                        <img
-                          src={poi.thumbnail_url}
-                          alt={poi.title}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-amber-800 font-bold text-lg">{idx + 1}</span>
-                      )}
+                      <img
+                        src={getMediaUrl(poi.thumbnail_url)}
+                        alt={poi.title}
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = DEFAULT_POI_IMAGE;
+                        }}
+                        className="w-full h-full object-cover"
+                      />
                       {poi.audio_url && (
                         <div className="absolute bottom-1 right-1 p-1 rounded-full bg-amber-600 text-white shadow">
                           <Headphones className="w-2.5 h-2.5" />

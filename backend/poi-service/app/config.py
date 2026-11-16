@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     GRPC_PORT: int = 50051
 
     # Supabase Storage (upload thumbnails)
-    SUPABASE_URL: Optional[str] = "https://your-project-id.supabase.co"
-    SUPABASE_SERVICE_KEY: Optional[str] = "your-supabase-service-role-key"
+    SUPABASE_URL: Optional[str] = "https://vaupfgylzvanpxeekytm.supabase.co"
+    SUPABASE_SERVICE_KEY: Optional[str] = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhdXBmZ3lsenZhbnB4ZWVreXRtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5NDcwNjg0OSwiZXhwIjoyMTEwMjgyODQ5fQ.rZyB5jqazJVkmDM058f_JriSxKImxFj_TKZY0eoAUzI"
     SUPABASE_BUCKET_NAME: str = "public-media"
 
     model_config = SettingsConfigDict(

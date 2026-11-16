@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { poiClient } from '../api/client';
+import { poiClient, getMediaUrl, DEFAULT_POI_IMAGE } from '../api/client';
 import { 
   MapPin, 
   Plus, 
@@ -240,10 +240,20 @@ export const POIManager: React.FC = () => {
                   <tr key={poi.poi_id} className="hover:bg-slate-800/30 transition-colors">
                     <td className="px-6 py-4 font-mono font-bold text-slate-400">#{poi.poi_id}</td>
                     <td className="px-6 py-4">
-                      <div className="font-semibold text-white">{poi.original_title}</div>
-                      {poi.thumbnail_url && (
-                        <span className="text-[11px] text-amber-400/80">Có ảnh thu nhỏ</span>
-                      )}
+                      <div className="flex items-center space-x-3">
+                        <img 
+                          src={getMediaUrl(poi.thumbnail_url)} 
+                          alt={poi.original_title}
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = DEFAULT_POI_IMAGE; }}
+                          className="w-10 h-10 rounded-lg object-cover bg-slate-800 shrink-0 border border-slate-700" 
+                        />
+                        <div>
+                          <div className="font-semibold text-white">{poi.original_title}</div>
+                          {poi.thumbnail_url && (
+                            <span className="text-[11px] text-amber-400/80">Có ảnh thu nhỏ</span>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <span className="px-2 py-0.5 rounded bg-slate-800 text-xs font-mono uppercase text-slate-300">
@@ -419,7 +429,24 @@ export const POIManager: React.FC = () => {
                   {isUploadingThumb && <Loader2 className="w-5 h-5 animate-spin text-amber-500" />}
                 </div>
                 {formData.thumbnail_url && (
-                  <p className="text-xs text-emerald-400 mt-1 truncate">Ảnh: {formData.thumbnail_url}</p>
+                  <div className="mt-2 flex items-center space-x-3">
+                    <img 
+                      src={getMediaUrl(formData.thumbnail_url)} 
+                      alt="Thumbnail Preview"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = DEFAULT_POI_IMAGE; }}
+                      className="w-14 h-14 rounded-xl object-cover bg-slate-800 border border-slate-700 shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs text-emerald-400 truncate">Ảnh: {formData.thumbnail_url}</p>
+                      <button
+                        type="button"
+                        onClick={() => setFormData((prev) => ({ ...prev, thumbnail_url: '' }))}
+                        className="text-[11px] text-red-400 hover:text-red-300 mt-0.5 underline cursor-pointer"
+                      >
+                        Xóa ảnh này
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
 

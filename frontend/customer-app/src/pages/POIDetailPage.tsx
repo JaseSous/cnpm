@@ -4,6 +4,7 @@ import { getPOIsFromDB } from '../services/db';
 import { syncPOIs } from '../services/poiSync';
 import { getCachedAudioUrl } from '../services/audioCache';
 import { POI } from '../types';
+import { getMediaUrl, DEFAULT_POI_IMAGE } from '../api/client';
 import { 
   ArrowLeft, 
   Play, 
@@ -152,18 +153,14 @@ export default function POIDetailPage() {
       <div className="relative">
         {/* Ảnh Thumbnail */}
         <div className="w-full h-64 bg-stone-900 relative overflow-hidden">
-          {poi.thumbnail_url ? (
             <img
-              src={poi.thumbnail_url}
+              src={getMediaUrl(poi.thumbnail_url)}
               alt={poi.title}
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = DEFAULT_POI_IMAGE;
+              }}
               className="w-full h-full object-cover"
             />
-          ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-amber-700 to-amber-900 text-white p-6 text-center">
-              <MapPin className="w-12 h-12 mb-2 text-amber-300 opacity-80" />
-              <h2 className="text-xl font-bold">{poi.title}</h2>
-            </div>
-          )}
 
           {/* Gradient Overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-stone-900/80 via-transparent to-stone-900/40" />

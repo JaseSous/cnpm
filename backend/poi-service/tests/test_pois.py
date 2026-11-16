@@ -117,3 +117,18 @@ async def test_unauthorized_poi_management(client: AsyncClient, customer_token: 
         "longitude": 108.2
     }, headers={"Authorization": f"Bearer {customer_token}"})
     assert res.status_code == 403
+
+@pytest.mark.asyncio
+async def test_upload_thumbnail(client: AsyncClient, admin_token: str):
+    """Admin upload ảnh thumbnail POI"""
+    file_content = b"\xff\xd8\xff\xe0\x00\x10JFIF"
+    files = {"file": ("test_upload.jpg", file_content, "image/jpeg")}
+    res = await client.post(
+        "/api/pois/upload-thumbnail",
+        files=files,
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert "thumbnail_url" in data
+    assert "thumbnails/poi_thumb_" in data["thumbnail_url"] or "/media/thumbnails/" in data["thumbnail_url"]
