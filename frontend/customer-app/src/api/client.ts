@@ -21,6 +21,19 @@ export const chatbotClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+export const DEFAULT_POI_IMAGE = "https://images.unsplash.com/photo-1599818816752-60453c072c41?auto=format&fit=crop&w=800&q=80";
+
+export const getMediaUrl = (path: string | null | undefined): string => {
+  if (!path || !path.trim()) return DEFAULT_POI_IMAGE;
+  const trimmed = path.trim();
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+  const base = (GATEWAY_URL || POI_BASE_URL).replace(/\/+$/, '');
+  const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return `${base}${cleanPath}`;
+};
+
 const attachCustomerAuth = (instance: any) => {
   instance.interceptors.request.use((config: any) => {
     const token = localStorage.getItem('customer_token');

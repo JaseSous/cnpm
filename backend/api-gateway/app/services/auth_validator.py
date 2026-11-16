@@ -15,6 +15,8 @@ PUBLIC_PATHS = [
 
 def is_public_route(path: str, method: str) -> bool:
     """Kiểm tra đường dẫn có thuộc danh sách công khai không cần token không"""
+    if path.startswith("/media") and method.upper() == "GET":
+        return True
     for pub in PUBLIC_PATHS:
         if path.rstrip("/") == pub.rstrip("/"):
             return True

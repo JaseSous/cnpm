@@ -1,6 +1,8 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
 from app.database import init_db
 from app.routes.pois import router as poi_router
 from app.routes.languages import router as language_router
@@ -48,6 +50,11 @@ app.add_middleware(
 app.include_router(poi_router)
 app.include_router(language_router)
 app.include_router(internal_router)
+
+# Phục vụ static files cho thư mục uploads (/media/...)
+uploads_dir = Path("./data/uploads")
+uploads_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/media", StaticFiles(directory=str(uploads_dir)), name="media")
 
 @app.get("/health", tags=["Health"])
 async def health_check():
