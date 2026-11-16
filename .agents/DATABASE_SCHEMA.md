@@ -9,9 +9,12 @@
 
 ---
 
-## 1. CƠ SỞ DỮ LIỆU 1: AUTH & PAYMENT DB (SQLite / PostgreSQL)
+## 1. CƠ SỞ DỮ LIỆU 1: AUTH & PAYMENT DB (PostgreSQL trên Supabase / SQLite dev-test)
 *Quản lý trực tiếp bởi:* **Authorization Service**  
-*Mục đích:* Quản lý tài khoản quản trị (Admin), nhân viên (Staff), các gói vé tham quan và các phiên thanh toán tiền mặt sinh token.
+*Mục đích:* Quản lý tài khoản quản trị (Admin), nhân viên (Staff), các gói vé tham quan và các phiên thanh toán tiền mặt sinh token (đồng thời phục vụ truy vấn thống kê Dashboard).
+
+> [!NOTE]
+> **Quy chuẩn thực thi trên PostgreSQL (`asyncpg`):** Các cột `TIMESTAMP` được khai báo là `TIMESTAMP WITHOUT TIME ZONE` trong SQLAlchemy. Toàn bộ thời gian UTC khi ghi/so sánh phải dùng **naive UTC datetime** (`datetime.now(timezone.utc).replace(tzinfo=None)` hoặc `datetime.utcnow`), và `normalize_async_db_url()` tự động chuyển host Supabase IPv6 sang Connection Pooler IPv4 cho Render Free Tier.
 
 ### 1.1. Bảng `Users`
 Lưu trữ thông tin tài khoản Admin và Staff (không hỗ trợ khách đăng ký tự do).
@@ -63,7 +66,7 @@ Lưu thông tin phiên thanh toán vé tiền mặt và trạng thái cấp toke
 
 ---
 
-## 2. CƠ SỞ DỮ LIỆU 2: POI DB (SQLite / PostgreSQL)
+## 2. CƠ SỞ DỮ LIỆU 2: POI DB (PostgreSQL trên Supabase / SQLite dev-test)
 *Quản lý trực tiếp bởi:* **Navigation & POI Service**  
 *Mục đích:* Quản lý các điểm tham quan (POIs), tọa độ GPS, bán kính kích hoạt, các ngôn ngữ hỗ trợ, nội dung bản dịch, URL audio và các cơ chế Outbox, Idempotency, Alerts.
 
@@ -198,21 +201,21 @@ Chạy trên 1 instance Redis duy nhất, được phân tách làm 2 logical da
 
 ### Collection: `poi_embeddings`
 - `vector_id`: UUID (Primary Key)
-- `poi_id`: UUID / INT (Tham chiếu tới POI trong POI DB)
+- `poi_id`: INT / STRING (Tham chiếu tới POI trong POI DB; `0` hoặc metadata riêng cho `knowledge_base` tổng quan)
 - `revision`: INT (Dùng để chống ghi đè dữ liệu cũ khi có sự kiện cập nhật)
-- `language_code`: VARCHAR(10) (Ngôn ngữ của đoạn text - thường nhúng từ mô tả gốc)
+- `language_code`: VARCHAR(10) (Ngôn ngữ của đoạn text - nhúng từ mô tả gốc hoặc tri thức tổng quan)
 - `chunk_text`: TEXT (Nội dung văn bản được chia nhỏ để nhúng)
-- `embedding_vector`: `FLOAT[768]` (Vector biểu diễn từ mô hình nhúng đa ngôn ngữ `text-embedding-004`)
+- `embedding_vector`: `FLOAT[768]` (Vector biểu diễn từ mô hình nhúng đa ngôn ngữ `gemini-embedding-001` với `output_dimensionality=768`)
 - `updated_at`: TIMESTAMP
 
 ---
 
 ## 5. KHO LƯU TRỮ TỆP CÔNG KHAI (FILE STORAGE BUCKET)
-*Dịch vụ:* **Supabase Storage / Cloudinary / S3**  
+*Dịch vụ:* **Supabase Storage (gọi trực tiếp REST API qua `httpx`, fallback cục bộ `/media/` khi offline)**  
 *Chính sách:* Bucket `public-media` có quyền đọc công khai (Public URL).
 
 - **Thư mục ảnh:** `thumbnails/`  
-  - Tên tệp: `poi_{poi_id}_{timestamp}.[jpg|png|webp]`  
+  - Tên tệp: `poi_thumb_<8hex>.[jpg|png|webp]` (Public URL Supabase hoặc fallback `/media/thumbnails/...`)  
   - Sử dụng trong: `POIs.thumbnail_url`
 - **Thư mục âm thanh thuyết minh:** `audios/`  
   - Tên tệp theo quy chuẩn: `poi_{poi_id}_{language_code}_rev{revision}.mp3`  

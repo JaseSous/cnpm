@@ -53,10 +53,12 @@ Nhóm thực hiện gồm có 3 thành viên:
 3. **Trương Thuận Phú** | `thuanphutruong1234@gmail.com`
 
 **CÁCH THỰC HIỆN:**
-Trước khi thực hiện lệnh `git commit`, AI Agent **BẮT BUỘC** phải đổi thông tin tác giả trong git config:
+Trước khi thực hiện lệnh `git commit`, AI Agent **BẮT BUỘC** phải đặt cả Author và Committer khớp nhau để tránh lệch thông tin tác giả trên GitHub:
 ```powershell
 git config user.name "<Tên tác giả>"
 git config user.email "<Email tác giả>"
+$env:GIT_COMMITTER_NAME = "<Tên tác giả>"
+$env:GIT_COMMITTER_EMAIL = "<Email tác giả>"
 ```
 
 **Cơ chế chia lượt commit (Xoay vòng Round-Robin hoặc theo phân vùng phụ trách):**
@@ -73,7 +75,7 @@ git config user.email "<Email tác giả>"
 
 1. **Microservices độc lập (Database-per-service):**
    - Mỗi backend service sở hữu cơ sở dữ liệu riêng. Tuyệt đối không để một service này truy vấn hoặc chỉnh sửa trực tiếp database của service khác (ngoại trừ qua API/gRPC hoặc Message Broker).
-   - `Data Pipeline Service` không ghi trực tiếp vào `POI DB` hay `Vector DB`; nó phải gọi gRPC/API tới service chủ quản.
+   - `Data Pipeline Service` không ghi trực tiếp vào `POI DB` hay `Vector DB`; nó phải gọi gRPC (hoặc HTTP `/api/internal/*` fallback trên Render Free Tier) tới service chủ quản.
 2. **Transactional Outbox & Idempotency:**
    - Các sự kiện POI (`poi.upserted`, `poi.deleted`) được lưu vào bảng `OutboxEvents` trong cùng giao dịch với dữ liệu POI.
    - Message consumer phải kiểm tra trùng lặp qua bảng `ProcessedEvents` theo `event_id` trước khi xử lý.
@@ -87,8 +89,8 @@ git config user.email "<Email tác giả>"
 ## 5. NGUYÊN TẮC VÀNG #4: HƯỚNG DẪN CHI TIẾT THIẾT LẬP MÔI TRƯỜNG & DỊCH VỤ BÊN NGOÀI
 
 Trong suốt quá trình phát triển dự án, nếu phát sinh nhu cầu cài đặt hoặc cấu hình bất kỳ môi trường hay dịch vụ bên ngoài nào:
-- **AI & External APIs:** Google Gemini API (AI Studio), Text Embedding model (`text-embedding-004`), Text-to-Speech (Edge-TTS), Translation APIs.
-- **Cơ sở dữ liệu & Caching:** Upstash Redis (Logical DB 0 & DB 1), Qdrant Cloud (Vector DB), Supabase Storage / Cloudinary (Object Storage).
+- **AI & External APIs:** Google Gemini API (`google-genai` SDK: `gemini-embedding-001`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`), Text-to-Speech (`edge-tts`), Translation APIs (`deep-translator`).
+- **Cơ sở dữ liệu & Caching:** PostgreSQL trên Supabase (IPv4 Connection Pooler + `asyncpg`), Upstash Redis (Logical DB 0 & DB 1), Qdrant Cloud (Vector DB), Supabase Storage (REST API qua `httpx`).
 - **Hạ tầng truyền thông:** CloudAMQP / RabbitMQ Message Broker.
 - **Container & Môi trường:** Docker, Dockerfile cho từng Microservice, Docker Compose chạy nội bộ (Local dev environment).
 - **Triển khai & CI/CD:** GitHub Actions Secrets, Render / Fly.io / Koyeb, Vercel Edge Network.

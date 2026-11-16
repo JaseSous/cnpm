@@ -31,7 +31,7 @@ Giải pháp đề xuất là xây dựng kiến trúc hệ thống Backend theo
 
 Chức năng chính của từng Service:
 
-API Gateway & Authorization Service: Quản lý xác thực dựa trên access_token. Hỗ trợ cấp mã vé tiền mặt (shorted_code, hiển thị dưới dạng văn bản hoặc mã QR) để khách đổi lấy token.
+API Gateway & Authorization Service: Quản lý xác thực dựa trên access_token. Hỗ trợ cấp mã vé tiền mặt (shorted_code, hiển thị dưới dạng văn bản hoặc mã QR) để khách đổi lấy token. Cung cấp API tổng hợp số liệu vận hành truy vấn trực tiếp từ bảng PaymentSessions gồm: số mã tạo trong ngày, số mã tạo toàn thời gian, số mã chờ kích hoạt và số phiên người dùng đang hoạt động.
 
 Navigation & POI Service: Quản lý và cung cấp dữ liệu điểm đến (POIs, tọa độ, bán kính kích hoạt, bản địa hóa); việc xác định vị trí và kích hoạt thuyết minh theo GPS được thực hiện trên Client (UC06).
 
@@ -44,7 +44,7 @@ Data Pipeline Service: Chạy ngầm, giao tiếp với API dịch thuật và T
 
 Du khách đến tham quan quét QR code tại cổng để mở ứng dụng, thanh toán tiền mặt tại quầy và nhận mã vé từ Staff; sau đó quét mã QR hiển thị trên màn hình của Staff (hoặc nhập thủ công mã vé) để đăng nhập.
 
-Hệ thống Authorization Service xác thực và cấp access_token cho người dùng hợp lệ.
+Hệ thống Authorization Service xác thực và cấp access_token cho người dùng hợp lệ. Đối với cán bộ quản lý (Admin) và nhân viên quầy vé (Staff), sau khi đăng nhập thành công vào Admin Dashboard, hệ thống tự động hiển thị màn hình Dashboard. Màn hình này cung cấp số liệu giám sát trực tiếp từ cơ sở dữ liệu theo thời gian thực (số mã phát hành trong ngày, tổng số mã phát hành, số mã còn chờ kích hoạt và số phiên người dùng đang hoạt động chưa hết hạn token) nhằm hỗ trợ theo dõi lưu lượng du khách đến Chùa Linh Ứng.
 
 Ứng dụng Client gọi Navigation & POI Service để tải danh sách Điểm tham quan (POI) và dữ liệu của ngôn ngữ đã chọn, kèm số phiên bản để chỉ tải lại khi dữ liệu có thay đổi, nhằm tối ưu hiệu năng.
 
@@ -68,7 +68,7 @@ Tự động hóa (CI/CD): Chuẩn hóa luồng CI/CD thông qua GitHub Actions,
 
 Hệ thống đứng giữa Client (Mobile/Web App) và các dịch vụ bên thứ ba (dịch vụ AI, dịch vụ bản đồ nền). Mô hình dữ liệu bám sát nguyên tắc mỗi service có một cơ sở dữ liệu độc lập:
 
-Auth & Payment DB: Quản lý bởi Authorization Service. Lưu trữ tài khoản và giao dịch.
+Auth & Payment DB: Quản lý bởi Authorization Service. Lưu trữ tài khoản người dùng, danh mục gói vé, và các phiên thanh toán / vé kích hoạt; đồng thời là nguồn dữ liệu chính để truy vấn trực tiếp các chỉ số thống kê vận hành thời gian thực trên Admin Dashboard.
 
 POI DB: Quản lý bởi Navigation & POI Service. Lưu tọa độ, bán kính kích hoạt và các bản dịch, đường dẫn audio của POI; đồng thời lưu trạng thái xử lý từng ngôn ngữ, event_id đã xử lý và cảnh báo lỗi của Data Pipeline Service, cùng danh sách ngôn ngữ hỗ trợ.
 
@@ -115,7 +115,7 @@ Kho lưu trữ tệp (File Storage): Lưu tệp âm thanh thuyết minh và ản
 | **Exception Path:** | E1. Mã xác thực bị bỏ trống hoặc sai định dạng → Hệ thống trả về mã lỗi 400 Bad Request (error_code: INVALID_CODE_FORMAT); Client App hiển thị “Vui lòng nhập mã xác thực hợp lệ” theo ngôn ngữ đang chọn.<br>E2. Mã shorted_code không tồn tại, đã được sử dụng hoặc hết hạn (TTL) trong Redis Cache → Hệ thống trả về lỗi 401 Unauthorized (error_code: CODE_INVALID_OR_EXPIRED); Client App hiển thị “Mã xác thực không hợp lệ hoặc đã hết hạn”.<br>E3. Auth & Payment DB hoặc Redis Cache không khả dụng → Hệ thống trả về 503 Service Unavailable (error_code: AUTH_SERVICE_UNAVAILABLE); Client App hiển thị “Hệ thống đang bận, vui lòng thử lại”. Nếu lỗi xảy ra sau khi shorted_code đã bị xóa, hệ thống khôi phục lại mã trong Redis Cache để Customer có thể thử lại.<br>E4. Vượt giới hạn số lần thử theo IP (đặt ngưỡng đủ cao vì nhiều du khách có thể dùng chung IP của WiFi hoặc mạng di động) → 429 Too Many Requests (error_code: RATE_LIMIT_EXCEEDED). | E1. Mã xác thực bị bỏ trống hoặc sai định dạng → Hệ thống trả về mã lỗi 400 Bad Request (error_code: INVALID_CODE_FORMAT); Client App hiển thị “Vui lòng nhập mã xác thực hợp lệ” theo ngôn ngữ đang chọn.<br>E2. Mã shorted_code không tồn tại, đã được sử dụng hoặc hết hạn (TTL) trong Redis Cache → Hệ thống trả về lỗi 401 Unauthorized (error_code: CODE_INVALID_OR_EXPIRED); Client App hiển thị “Mã xác thực không hợp lệ hoặc đã hết hạn”.<br>E3. Auth & Payment DB hoặc Redis Cache không khả dụng → Hệ thống trả về 503 Service Unavailable (error_code: AUTH_SERVICE_UNAVAILABLE); Client App hiển thị “Hệ thống đang bận, vui lòng thử lại”. Nếu lỗi xảy ra sau khi shorted_code đã bị xóa, hệ thống khôi phục lại mã trong Redis Cache để Customer có thể thử lại.<br>E4. Vượt giới hạn số lần thử theo IP (đặt ngưỡng đủ cao vì nhiều du khách có thể dùng chung IP của WiFi hoặc mạng di động) → 429 Too Many Requests (error_code: RATE_LIMIT_EXCEEDED). |
 | **Extension Points:** | Không có. (UC02 được kích hoạt tuần tự sau UC01 khi Client App nhận được access_token.) | Không có. (UC02 được kích hoạt tuần tự sau UC01 khi Client App nhận được access_token.) |
 | **Triggers:** | Customer đã thanh toán tiền mặt tại quầy và nhận shorted_code từ Staff, dưới dạng văn bản hoặc mã QR (UC09). | Customer đã thanh toán tiền mặt tại quầy và nhận shorted_code từ Staff, dưới dạng văn bản hoặc mã QR (UC09). |
-| **Assumptions:** | Hệ thống Auth & Payment DB (SQL Server/PostgreSQL), Redis Cache hoạt động bình thường. | Hệ thống Auth & Payment DB (SQL Server/PostgreSQL), Redis Cache hoạt động bình thường. |
+| **Assumptions:** | Hệ thống Auth & Payment DB (PostgreSQL trên Supabase), Redis Cache hoạt động bình thường. | Hệ thống Auth & Payment DB (PostgreSQL trên Supabase), Redis Cache hoạt động bình thường. |
 | **Preconditions:** | Customer chưa có access_token hợp lệ trong localStorage (hoặc token cũ đã hết hạn).<br>Customer đã chọn ngôn ngữ (UC05).<br>Customer đã nhận shorted_code do Staff cấp (UC08), dạng văn bản hoặc mã QR (UC09). | Customer chưa có access_token hợp lệ trong localStorage (hoặc token cũ đã hết hạn).<br>Customer đã chọn ngôn ngữ (UC05).<br>Customer đã nhận shorted_code do Staff cấp (UC08), dạng văn bản hoặc mã QR (UC09). |
 | **Post Conditions:** | Customer nhận được access_token hợp lệ. Trạng thái thanh toán được ghi nhận Success trong Auth & Payment DB và shorted_code đã bị xóa khỏi Redis Cache. | Customer nhận được access_token hợp lệ. Trạng thái thanh toán được ghi nhận Success trong Auth & Payment DB và shorted_code đã bị xóa khỏi Redis Cache. |
 | **Reference: Business Rules** | - Mỗi mã shorted_code lưu trong Redis Cache có thời hạn (TTL) nhất định và chỉ đổi lấy token được 1 lần duy nhất; việc đối chiếu và xóa mã là một thao tác nguyên tử để khi hai thiết bị gửi cùng lúc chỉ một thiết bị thành công.<br>- shorted_code nhập thủ công và shorted_code lấy từ mã QR (UC09) là cùng một giá trị và được xử lý hoàn toàn giống nhau; hệ thống không phân biệt cách Customer cung cấp mã.<br>- access_token là JWT có thời hạn (mặc định đến hết ngày tham quan, giá trị cấu hình được), chứa session_id và role = customer.<br>- Mọi request gọi đến các service khác sau bước này đều bắt buộc đính kèm access_token; API Gateway tự kiểm tra chữ ký, thời hạn của token và từ chối (401, error_code: TOKEN_INVALID) khi token không hợp lệ hoặc đã hết hạn.<br>- Trạng thái thanh toán dùng thống nhất ba giá trị: Pending, Success, Failed.<br>- Hệ thống trả lỗi dưới dạng error_code; Client App hiển thị thông báo theo ngôn ngữ đã chọn (UC05).<br>- Mỗi mã chỉ dùng một lần nên một mã chỉ cấp quyền truy cập cho một thiết bị. Hệ thống không có chức năng cấp lại mã hoặc khôi phục token: mất token (đổi trình duyệt, xóa dữ liệu trình duyệt) thì không lấy lại được quyền truy cập đã cấp.<br>- Endpoint xác thực là công khai nên áp dụng giới hạn số lần thử để chống dò mã. | - Mỗi mã shorted_code lưu trong Redis Cache có thời hạn (TTL) nhất định và chỉ đổi lấy token được 1 lần duy nhất; việc đối chiếu và xóa mã là một thao tác nguyên tử để khi hai thiết bị gửi cùng lúc chỉ một thiết bị thành công.<br>- shorted_code nhập thủ công và shorted_code lấy từ mã QR (UC09) là cùng một giá trị và được xử lý hoàn toàn giống nhau; hệ thống không phân biệt cách Customer cung cấp mã.<br>- access_token là JWT có thời hạn (mặc định đến hết ngày tham quan, giá trị cấu hình được), chứa session_id và role = customer.<br>- Mọi request gọi đến các service khác sau bước này đều bắt buộc đính kèm access_token; API Gateway tự kiểm tra chữ ký, thời hạn của token và từ chối (401, error_code: TOKEN_INVALID) khi token không hợp lệ hoặc đã hết hạn.<br>- Trạng thái thanh toán dùng thống nhất ba giá trị: Pending, Success, Failed.<br>- Hệ thống trả lỗi dưới dạng error_code; Client App hiển thị thông báo theo ngôn ngữ đã chọn (UC05).<br>- Mỗi mã chỉ dùng một lần nên một mã chỉ cấp quyền truy cập cho một thiết bị. Hệ thống không có chức năng cấp lại mã hoặc khôi phục token: mất token (đổi trình duyệt, xóa dữ liệu trình duyệt) thì không lấy lại được quyền truy cập đã cấp.<br>- Endpoint xác thực là công khai nên áp dụng giới hạn số lần thử để chống dò mã. |
@@ -227,7 +227,7 @@ Kho lưu trữ tệp (File Storage): Lưu tệp âm thanh thuyết minh và ản
 | **Assumptions:** | Dữ liệu kiến thức về điểm tham quan đã được nhúng và lưu sẵn trong Vector DB (UC04); mô hình embedding hỗ trợ đa ngôn ngữ và là cùng một mô hình với mô hình UC04 dùng để tạo vector (để câu hỏi và dữ liệu nằm trong cùng không gian vector); kết nối tới AI API hoạt động tốt. | Dữ liệu kiến thức về điểm tham quan đã được nhúng và lưu sẵn trong Vector DB (UC04); mô hình embedding hỗ trợ đa ngôn ngữ và là cùng một mô hình với mô hình UC04 dùng để tạo vector (để câu hỏi và dữ liệu nằm trong cùng không gian vector); kết nối tới AI API hoạt động tốt. |
 | **Preconditions:** | Du khách đã xác thực thành công, có access_token hợp lệ và đã chọn ngôn ngữ (UC05). | Du khách đã xác thực thành công, có access_token hợp lệ và đã chọn ngôn ngữ (UC05). |
 | **Post Conditions:** | Du khách nhận được câu trả lời sát ngữ cảnh bằng ngôn ngữ đã chọn; câu hỏi thường gặp được lưu vào Redis Cache để tối ưu tốc độ cho các lần truy vấn sau. | Du khách nhận được câu trả lời sát ngữ cảnh bằng ngôn ngữ đã chọn; câu hỏi thường gặp được lưu vào Redis Cache để tối ưu tốc độ cho các lần truy vấn sau. |
-| **Reference: Business Rules** | - Áp dụng cơ chế RAG để đảm bảo AI chỉ trả lời dựa trên nguồn dữ liệu chính thống của địa điểm tham quan.<br>- Ngưỡng độ tương đồng (cosine similarity) tối thiểu để coi là có ngữ cảnh phù hợp là 0,35 (giá trị cấu hình được).<br>- Khóa Cache gồm câu hỏi đã chuẩn hóa và mã ngôn ngữ; Cache được lưu với TTL. Khi dữ liệu tri thức của POI được cập nhật hoặc POI bị xóa (UC04), toàn bộ FAQ Cache bị xóa để không trả về câu trả lời cũ.<br>- Lưu cache các câu hỏi và câu trả lời gần nhất vào Redis để giảm độ trễ và tiết kiệm chi phí gọi API AI.<br>- Giới hạn số câu hỏi phải gọi AI theo session_id trong một khoảng thời gian (giá trị cấu hình được) để kiểm soát chi phí gọi AI; câu hỏi được trả lời từ Cache không bị tính.<br>- Thông báo lỗi và phản hồi mặc định được hiển thị theo ngôn ngữ mà Customer đã chọn. | - Áp dụng cơ chế RAG để đảm bảo AI chỉ trả lời dựa trên nguồn dữ liệu chính thống của địa điểm tham quan.<br>- Ngưỡng độ tương đồng (cosine similarity) tối thiểu để coi là có ngữ cảnh phù hợp là 0,35 (giá trị cấu hình được).<br>- Khóa Cache gồm câu hỏi đã chuẩn hóa và mã ngôn ngữ; Cache được lưu với TTL. Khi dữ liệu tri thức của POI được cập nhật hoặc POI bị xóa (UC04), toàn bộ FAQ Cache bị xóa để không trả về câu trả lời cũ.<br>- Lưu cache các câu hỏi và câu trả lời gần nhất vào Redis để giảm độ trễ và tiết kiệm chi phí gọi API AI.<br>- Giới hạn số câu hỏi phải gọi AI theo session_id trong một khoảng thời gian (giá trị cấu hình được) để kiểm soát chi phí gọi AI; câu hỏi được trả lời từ Cache không bị tính.<br>- Thông báo lỗi và phản hồi mặc định được hiển thị theo ngôn ngữ mà Customer đã chọn. |
+| **Reference: Business Rules** | - Áp dụng cơ chế RAG để đảm bảo AI chỉ trả lời dựa trên nguồn dữ liệu chính thống của địa điểm tham quan.<br>- Ngưỡng độ tương đồng (cosine similarity) tối thiểu để coi là có ngữ cảnh phù hợp là 0,35 theo thiết kế gốc (giá trị cấu hình được; thực tế production hiện cấu hình `SIMILARITY_SCORE_THRESHOLD = 0.55`).<br>- Khóa Cache gồm câu hỏi đã chuẩn hóa và mã ngôn ngữ; Cache được lưu với TTL. Khi dữ liệu tri thức của POI được cập nhật hoặc POI bị xóa (UC04), toàn bộ FAQ Cache bị xóa để không trả về câu trả lời cũ.<br>- Lưu cache các câu hỏi và câu trả lời gần nhất vào Redis để giảm độ trễ và tiết kiệm chi phí gọi API AI.<br>- Giới hạn số câu hỏi phải gọi AI theo session_id trong một khoảng thời gian (giá trị cấu hình được) để kiểm soát chi phí gọi AI; câu hỏi được trả lời từ Cache không bị tính.<br>- Thông báo lỗi và phản hồi mặc định được hiển thị theo ngôn ngữ mà Customer đã chọn. | - Áp dụng cơ chế RAG để đảm bảo AI chỉ trả lời dựa trên nguồn dữ liệu chính thống của địa điểm tham quan.<br>- Ngưỡng độ tương đồng (cosine similarity) tối thiểu để coi là có ngữ cảnh phù hợp là 0,35 theo thiết kế gốc (giá trị cấu hình được; thực tế production hiện cấu hình `SIMILARITY_SCORE_THRESHOLD = 0.55`).<br>- Khóa Cache gồm câu hỏi đã chuẩn hóa và mã ngôn ngữ; Cache được lưu với TTL. Khi dữ liệu tri thức của POI được cập nhật hoặc POI bị xóa (UC04), toàn bộ FAQ Cache bị xóa để không trả về câu trả lời cũ.<br>- Lưu cache các câu hỏi và câu trả lời gần nhất vào Redis để giảm độ trễ và tiết kiệm chi phí gọi API AI.<br>- Giới hạn số câu hỏi phải gọi AI theo session_id trong một khoảng thời gian (giá trị cấu hình được) để kiểm soát chi phí gọi AI; câu hỏi được trả lời từ Cache không bị tính.<br>- Thông báo lỗi và phản hồi mặc định được hiển thị theo ngôn ngữ mà Customer đã chọn. |
 | **Author(s):** | Trương Thuận Phú. | Trương Thuận Phú. |
 | **Date:** | Bản gốc: 13/10/2026. Hiệu chỉnh: 11/11/2026 | Bản gốc: 13/10/2026. Hiệu chỉnh: 11/11/2026 |
 | **Activity Diagram:** | Activity Diagram: | Activity Diagram: |
@@ -400,7 +400,7 @@ Kho lưu trữ tệp (File Storage): Lưu tệp âm thanh thuyết minh và ản
 | **Use Case Name:** | Đăng nhập Admin/Staff. | Đăng nhập Admin/Staff. |
 | **Actor(s):** | Admin/Staff (thông qua Admin Dashboard). | Admin/Staff (thông qua Admin Dashboard). |
 | **Maturity:** | Focused. | Focused. |
-| **Summary:** | Admin hoặc Staff đăng nhập bằng username và password trên Admin Dashboard để nhận access_token (JWT) mang vai trò (role) tương ứng, dùng cho các chức năng quản trị (UC08, UC10, UC11). | Admin hoặc Staff đăng nhập bằng username và password trên Admin Dashboard để nhận access_token (JWT) mang vai trò (role) tương ứng, dùng cho các chức năng quản trị (UC08, UC10, UC11). |
+| **Summary:** | Admin hoặc Staff đăng nhập bằng username và password trên Admin Dashboard để nhận access_token (JWT) mang vai trò (role) tương ứng, dùng cho các chức năng quản trị (UC08, UC10, UC11) và màn hình Dashboard thống kê mã vé, phiên người dùng hoạt động. | Admin hoặc Staff đăng nhập bằng username và password trên Admin Dashboard để nhận access_token (JWT) mang vai trò (role) tương ứng, dùng cho các chức năng quản trị (UC08, UC10, UC11) và màn hình Dashboard thống kê mã vé, phiên người dùng hoạt động. |
 | **Basic Course of Events:** | Actor Action | System Response |
 | **Basic Course of Events:** | 1. Admin/Staff nhập username, password trên Admin Dashboard và nhấn Đăng nhập. |  |
 | **Basic Course of Events:** |  | 2. API Gateway tiếp nhận HTTPS Request và định tuyến đến Authorization Service. |
@@ -408,7 +408,7 @@ Kho lưu trữ tệp (File Storage): Lưu tệp âm thanh thuyết minh và ản
 | **Basic Course of Events:** |  | 4. Authorization Service so khớp password với password_hash (bcrypt). E2, E3. |
 | **Basic Course of Events:** |  | 5. Authorization Service sinh access_token (JWT) chứa user_id, role và thời hạn. E4. |
 | **Basic Course of Events:** |  | 6. Hệ thống trả access_token về cho Admin Dashboard. |
-| **Basic Course of Events:** | 7. Admin Dashboard lưu access_token (trong bộ nhớ phiên) và hiển thị các chức năng theo role. |  |
+| **Basic Course of Events:** | 7. Admin Dashboard lưu access_token, tự động điều hướng vào màn hình Dashboard và gửi request `GET /api/auth/dashboard-stats` để hiển thị 4 chỉ số thống kê từ bảng PaymentSessions (số mã tạo hôm nay, tổng số mã, số mã chờ kích hoạt, số phiên đang hoạt động). |  |
 | **Basic Course of Events:** |  | 8. Usecase kết thúc tại đây. |
 | **Alternative Path:** | A1. Token quản trị hết hạn trong lúc thao tác. | A1. Token quản trị hết hạn trong lúc thao tác. |
 | **Alternative Path:** | Actor Action | System Response |
@@ -421,7 +421,7 @@ Kho lưu trữ tệp (File Storage): Lưu tệp âm thanh thuyết minh và ản
 | **Assumptions:** | Tài khoản Admin/Staff đã được tạo sẵn trong bảng Users (không có chức năng tự đăng ký); Auth & Payment DB hoạt động bình thường. | Tài khoản Admin/Staff đã được tạo sẵn trong bảng Users (không có chức năng tự đăng ký); Auth & Payment DB hoạt động bình thường. |
 | **Preconditions:** | Admin/Staff chưa có access_token hợp lệ. | Admin/Staff chưa có access_token hợp lệ. |
 | **Post Conditions:** | Admin/Staff nhận được access_token hợp lệ mang role admin hoặc staff. | Admin/Staff nhận được access_token hợp lệ mang role admin hoặc staff. |
-| **Reference: Business Rules** | - Mật khẩu được lưu dưới dạng băm (bcrypt), không lưu mật khẩu gốc.<br>- Phân quyền theo role: Staff chỉ được dùng UC08 (tạo mã vé tiền mặt); Admin được dùng UC08, UC10 và UC11.<br>- access_token quản trị có thời hạn ngắn hơn access_token của Customer (giá trị cấu hình được).<br>- Không có chức năng đăng ký công khai; việc tạo tài khoản nằm ngoài phạm vi của Use Case này. | - Mật khẩu được lưu dưới dạng băm (bcrypt), không lưu mật khẩu gốc.<br>- Phân quyền theo role: Staff chỉ được dùng UC08 (tạo mã vé tiền mặt); Admin được dùng UC08, UC10 và UC11.<br>- access_token quản trị có thời hạn ngắn hơn access_token của Customer (giá trị cấu hình được).<br>- Không có chức năng đăng ký công khai; việc tạo tài khoản nằm ngoài phạm vi của Use Case này. |
+| **Reference: Business Rules** | - Mật khẩu được lưu dưới dạng băm (bcrypt), không lưu mật khẩu gốc.<br>- Phân quyền theo role: Staff được dùng màn hình Dashboard thống kê và UC08 (tạo mã vé tiền mặt); Admin được toàn quyền truy cập Dashboard, UC08, UC10 và UC11.<br>- access_token quản trị có thời hạn ngắn hơn access_token của Customer (giá trị cấu hình được).<br>- Không có chức năng đăng ký công khai; việc tạo tài khoản nằm ngoài phạm vi của Use Case này. | - Mật khẩu được lưu dưới dạng băm (bcrypt), không lưu mật khẩu gốc.<br>- Phân quyền theo role: Staff được dùng màn hình Dashboard thống kê và UC08 (tạo mã vé tiền mặt); Admin được toàn quyền truy cập Dashboard, UC08, UC10 và UC11.<br>- access_token quản trị có thời hạn ngắn hơn access_token của Customer (giá trị cấu hình được).<br>- Không có chức năng đăng ký công khai; việc tạo tài khoản nằm ngoài phạm vi của Use Case này. |
 | **Author(s):** | Trương Thuận Phú | Trương Thuận Phú |
 | **Date:** | Bản gốc: 07/11/2026. Hiệu chỉnh: 11/11/2026 | Bản gốc: 07/11/2026. Hiệu chỉnh: 11/11/2026 |
 | **Activity Diagram:** | Activity Diagram: | Activity Diagram: |
@@ -699,22 +699,176 @@ Kho lưu trữ tệp (File Storage): Lưu tệp âm thanh thuyết minh và ản
 
 ![DFD Mức 2.1](diagrams/dfd_level_2_1.png)
 
+**Ý nghĩa từng dòng dữ liệu:**
+- **Tiến trình 1.1:** Kiểm tra khóa tạm thời và xác thực đăng nhập Admin/Staff (bcrypt, sinh JWT role) (UC07)
+  - `D1`: Staff/Admin gửi username, password vào tiến trình 1.1.
+  - `D2`: Tiến trình 1.1 tra cứu `password_hash`, đếm lỗi đăng nhập và khóa tạm thời tài khoản (`ACCOUNT_LOCKED`) trong kho `Users & LoginAttempts` (Auth DB).
+  - `D3`: Tiến trình 1.1 trả `access_token` (role admin/staff) hoặc lỗi 400/401/429 cho Staff/Admin.
+- **Tiến trình 1.2:** Tạo `PaymentSession` (`Pending`) và sinh `shorted_code` 10 ký tự lưu Redis TTL (UC08)
+  - `D1`: Staff/Admin gửi yêu cầu tạo mã vé (số tiền/gói vé) kèm JWT vào tiến trình 1.2.
+  - `D2`: Tiến trình 1.2 ghi `PaymentSession` (`cash`, `Pending`, người tạo) vào kho `PaymentSessions & TicketPackages` (Auth DB), đặt `Failed` nếu Redis lỗi.
+  - `D3`: Tiến trình 1.2 kiểm tra trùng và lưu `shorted_code` kèm `session_id`, TTL vào kho Auth Redis Cache.
+  - `D4`: Tiến trình 1.2 chuyển `shorted_code` và thời hạn hiệu lực sang tiến trình 1.3.
+- **Tiến trình 1.3:** Tạo ảnh mã QR cục bộ từ `shorted_code` và hiển thị mã văn bản + QR (UC08)
+  - `D1`: Tiến trình 1.2 chuyển `shorted_code` và thời hạn hiệu lực vào tiến trình 1.3.
+  - `D2`: Tiến trình 1.3 hiển thị `shorted_code` dạng văn bản và ảnh mã QR cho Staff/Admin.
+  - `D3`: Tiến trình 1.3 cung cấp mã QR trên màn hình hoặc mã văn bản cho Customer.
+- **Tiến trình 1.4:** Quét/giải mã QR, trích xuất `shorted_code`, kiểm tra ngôn ngữ và xóa `#code` khỏi URL (UC09)
+  - `D1`: Customer quét mã QR bằng Camera hoặc trình quét trong App.
+  - `D2`: Tiến trình 1.4 kiểm tra ngôn ngữ (`lang`), lưu tạm `code` nếu Customer chưa chọn ngôn ngữ (A2) vào kho Client Local Storage (`localStorage`/Session).
+  - `D3`: Tiến trình 1.4 tự động điền `shorted_code` và gửi xác thực sang tiến trình 1.5.
+- **Tiến trình 1.5:** Kiểm tra Rate Limit IP, định dạng 10 ký tự và đối chiếu/xóa nguyên tử `shorted_code` (UC01)
+  - `D1`: Customer nhập thủ công `shorted_code` vào tiến trình 1.5 (UC01/UC09-A1).
+  - `D2`: Tiến trình 1.4 chuyển `shorted_code` tự động điền vào tiến trình 1.5.
+  - `D3`: Tiến trình 1.5 kiểm tra Rate Limit IP và `GETDEL` nguyên tử `shorted_code` để lấy `session_id` trong kho Auth Redis Cache.
+  - `D4`: Tiến trình 1.5 chuyển `session_id` hợp lệ sang tiến trình 1.6.
+- **Tiến trình 1.6:** Cập nhật `PaymentSession` `Success`, sinh JWT Customer và lưu `localStorage` (UC01)
+  - `D1`: Tiến trình 1.5 chuyển `session_id` hợp lệ vào tiến trình 1.6.
+  - `D2`: Tiến trình 1.6 cập nhật `PaymentSession` sang `Success` trong kho `PaymentSessions & TicketPackages` (Auth DB); nếu DB lỗi thì khôi phục mã vào kho Auth Redis Cache.
+  - `D3`: Tiến trình 1.6 lưu `access_token` (JWT) vào kho Client Local Storage (`localStorage`) và kích hoạt UC02.
+  - `D4`: Tiến trình 1.6 cấp quyền truy cập ứng dụng cho Customer.
+
 
 ### DFD Mức 2.2
 
 ![DFD Mức 2.2](diagrams/dfd_level_2_2.png)
+
+**Ý nghĩa từng dòng dữ liệu:**
+- **Tiến trình 2.1:** Xác thực quyền Admin (JWT) và kiểm tra hợp lệ dữ liệu POI: tọa độ, bán kính > 0, tiêu đề/mô tả, ngôn ngữ gốc (UC10)
+  - `D1`: Admin gửi thông tin Thêm/Sửa POI kèm tệp thumbnail và JWT vào tiến trình 2.1.
+  - `D2`: Kho `POIs, POILocalizations, Languages & Metadata` (POI DB) trả danh sách ngôn ngữ hỗ trợ để tiến trình 2.1 kiểm tra ngôn ngữ gốc.
+  - `D3`: Tiến trình 2.1 chuyển dữ liệu POI hợp lệ và tệp thumbnail mới sang tiến trình 2.2.
+- **Tiến trình 2.2:** Tải tệp thumbnail mới lên File Storage (nhận `thumbnail_url`) và xóa thumbnail cũ (UC10)
+  - `D1`: Tiến trình 2.1 chuyển dữ liệu POI hợp lệ và tệp thumbnail mới vào tiến trình 2.2.
+  - `D2`: Tiến trình 2.2 tải ảnh mới lên và xóa ảnh cũ trong kho File Storage (Thumbnails Bucket), nhận lại `thumbnail_url`.
+  - `D3`: Tiến trình 2.2 chuyển dữ liệu POI kèm `thumbnail_url` sang tiến trình 2.3.
+- **Tiến trình 2.3:** Giao dịch lưu POI: cập nhật `revision`/`data_version`, đặt ngôn ngữ `Pending` và ghi `poi.upserted` vào Outbox (UC10, UC10-A1)
+  - `D1`: Tiến trình 2.2 chuyển dữ liệu POI kèm `thumbnail_url` vào tiến trình 2.3.
+  - `D2`: Tiến trình 2.3 lưu POI vào kho `POIs, POILocalizations, Languages & Metadata` (POI DB), tăng `revision` (nếu đổi văn bản), tạo bản địa hóa `Pending`, tăng `data_version` (nếu đổi tọa độ/bán kính/ảnh).
+  - `D3`: Tiến trình 2.3 ghi sự kiện `poi.upserted` vào kho `OutboxEvents & PipelineAlerts` (nếu đổi tiêu đề/mô tả/ngôn ngữ gốc).
+  - `D4`: Tiến trình 2.3 phản hồi thành công ngay lập tức cho Admin (trạng thái: Đang xử lý ngôn ngữ).
+- **Tiến trình 2.4:** Giao dịch xóa POI: xóa POI và bản địa hóa, tăng `data_version`, xóa thumbnail và ghi `poi.deleted` vào Outbox (UC10-A2)
+  - `D1`: Admin gửi yêu cầu Xóa POI (`poi_id`) kèm JWT vào tiến trình 2.4.
+  - `D2`: Tiến trình 2.4 xóa bản ghi POI và `POILocalizations`, tăng `data_version` trong kho `POIs, POILocalizations, Languages & Metadata` (POI DB).
+  - `D3`: Tiến trình 2.4 xóa tệp thumbnail của POI trong kho File Storage.
+  - `D4`: Tiến trình 2.4 ghi sự kiện `poi.deleted` (`poi_id`) vào kho `OutboxEvents & PipelineAlerts`.
+- **Tiến trình 2.5:** Đọc trạng thái ngôn ngữ, trạng thái Vector DB, cảnh báo lỗi và tự động chuyển `Pending` > 30 phút sang `Failed` (`TIMEOUT`) (UC11)
+  - `D1`: Admin mở màn hình Trạng thái xử lý ngôn ngữ hoặc xem chi tiết lỗi (A1) trong tiến trình 2.5.
+  - `D2`: Tiến trình 2.5 đọc trạng thái ngôn ngữ, `vector_status` và cập nhật `TIMEOUT` (`Pending` quá 30 phút chuyển sang `Failed`) trong kho `POIs, POILocalizations, Languages & Metadata` (POI DB).
+  - `D3`: Tiến trình 2.5 đọc danh sách cảnh báo lỗi (`PipelineAlerts`) từ kho `OutboxEvents & PipelineAlerts`.
+  - `D4`: Tiến trình 2.5 trả cho Admin danh sách trạng thái và chi tiết lỗi (loại lỗi, thời điểm, số lần thử).
+- **Tiến trình 2.6:** Kiểm tra mục chọn đang `Failed`, đặt lại `Pending`, ghi nhật ký và ghi yêu cầu `poi.retry` vào Outbox (UC11)
+  - `D1`: Admin chọn POI + ngôn ngữ `Failed` (hoặc Đồng bộ lại Vector DB) và nhấn Xử lý lại trong tiến trình 2.6.
+  - `D2`: Tiến trình 2.6 kiểm tra trạng thái `Failed` của mục chọn (trả lỗi 409 nếu không `Failed`) và đặt lại về `Pending` trong kho `POIs, POILocalizations, Languages & Metadata` (POI DB).
+  - `D3`: Tiến trình 2.6 ghi nhật ký xử lý lại và ghi sự kiện `poi.retry` (`event_id`) vào kho `OutboxEvents & PipelineAlerts`.
 
 
 ### DFD Mức 2.3
 
 ![DFD Mức 2.3](diagrams/dfd_level_2_3.png)
 
+**Ý nghĩa từng dòng dữ liệu:**
+- **Tiến trình 3.1:** Nhận sự kiện từ Message Queue và kiểm tra chống trùng lặp theo `event_id` (Idempotency) (UC04 bước 1-3, A1, A2)
+  - `D1`: Kho Outbox/Message Queue gửi sự kiện `poi.upserted`, `poi.deleted`, `poi.retry` vào tiến trình 3.1; tiến trình 3.1 kiểm tra `event_id` đã xử lý (`ProcessedEvents`).
+  - `D2`: Kho `POIs, POILocalizations & SystemMetadata` (POI DB) trả danh sách ngôn ngữ `Pending` và mô tả gốc POI (gRPC / HTTP internal fallback) cho tiến trình 3.1.
+  - `D3`: Tiến trình 3.1 chuyển danh sách ngôn ngữ cần dịch và văn bản gốc sang tiến trình 3.2.
+  - `D4`: Tiến trình 3.1 kích hoạt xóa dữ liệu sang tiến trình 3.6 khi nhận sự kiện `poi.deleted` (A4).
+- **Tiến trình 3.2:** Dịch tiêu đề và mô tả gốc sang các ngôn ngữ `Pending` (hỗ trợ Gemini Batch Translation + fallback), thử lại tối đa 3 lần, lỗi chuyển vào `poi.dlq` (UC04 bước 4-5, E1)
+  - `D1`: Tiến trình 3.1 chuyển danh sách ngôn ngữ cần dịch và văn bản gốc vào tiến trình 3.2.
+  - `D2`: Tiến trình 3.2 gửi tiêu đề và mô tả gốc (nếu khác ngôn ngữ gốc) sang Translation APIs (Gemini AI / GoogleTranslator / MyMemory) và nhận lại bản dịch.
+  - `D3`: Tiến trình 3.2 chuyển sự kiện vào Dead-Letter Queue (`poi.dlq`) nếu lỗi sau 3 lần thử (E1).
+  - `D4`: Tiến trình 3.2 đặt trạng thái ngôn ngữ = `Failed` (`last_error`, `attempt_count`, `failed_at`) trong kho POI DB.
+  - `D5`: Tiến trình 3.2 chuyển văn bản đã dịch của ngôn ngữ sang tiến trình 3.3.
+- **Tiến trình 3.3:** Gọi TTS API tổng hợp âm thanh và lưu tệp Audio vào File Storage, xử lý ngôn ngữ không có TTS (UC04 bước 6-8, A3)
+  - `D1`: Tiến trình 3.2 chuyển văn bản đã dịch vào tiến trình 3.3.
+  - `D2`: Tiến trình 3.3 gửi văn bản cần tổng hợp giọng đọc sang TTS APIs (`edge-tts`) và nhận lại tệp âm thanh (hoặc thông báo thiếu TTS, A3).
+  - `D3`: Tiến trình 3.3 lưu tệp âm thanh mới vào kho File Storage (`audios/poi_{poi_id}_{lang}_rev{rev}.mp3`) và nhận `audio_url`.
+  - `D4`: Tiến trình 3.3 chuyển bản dịch văn bản, `audio_url` (hoặc rỗng nếu A3) và `revision` sang tiến trình 3.4.
+- **Tiến trình 3.4:** Kiểm tra `revision`, lưu bản dịch và `audio_url` vào POI DB, đặt `Done`, tăng `data_version` và xóa audio cũ (UC04 bước 8, E2)
+  - `D1`: Tiến trình 3.3 chuyển bản dịch văn bản, `audio_url` (hoặc rỗng nếu A3) và `revision` vào tiến trình 3.4.
+  - `D2`: Tiến trình 3.4 kiểm tra `revision`, ghi đè bản dịch `Done`, tăng `data_version` trong kho `POIs, POILocalizations & SystemMetadata` (POI DB), hoặc đặt `Failed` nếu lỗi (E2).
+  - `D3`: Tiến trình 3.4 xóa tệp audio cũ của cùng `poi_id` và `lang` trong kho File Storage.
+  - `D4`: Tiến trình 3.4 kích hoạt đồng bộ Vector sang tiến trình 3.5 sau khi xử lý xong các ngôn ngữ.
+- **Tiến trình 3.5:** Tạo Vector Embeddings từ mô tả gốc và đồng bộ vào Vector DB kèm `revision`, đặt `vector_status = Synced` (UC04 bước 9, E2)
+  - `D1`: Tiến trình 3.4 kích hoạt đồng bộ Vector vào tiến trình 3.5.
+  - `D2`: Tiến trình 3.5 gửi mô tả gốc POI sang Embedding AI API (`gemini-embedding-001`, 768 chiều) và nhận lại Vector Embeddings đa ngôn ngữ.
+  - `D3`: Tiến trình 3.5 cập nhật vector theo `poi_id` và `revision` vào kho Vector DB (từ chối nếu `revision` cũ).
+  - `D4`: Tiến trình 3.5 cập nhật `vector_status = Synced` (hoặc `Failed` nếu lỗi E2) trong kho POI DB.
+  - `D5`: Tiến trình 3.5 chuyển tín hiệu hoàn tất xử lý ngôn ngữ và vector sang tiến trình 3.6.
+- **Tiến trình 3.6:** Xử lý xóa POI (xóa vector và audio A4), xóa toàn bộ FAQ Cache và ghi nhận hoàn tất `event_id` / cảnh báo (UC04 bước 10, A4)
+  - `D1`: Tiến trình 3.1 kích hoạt xóa dữ liệu vào tiến trình 3.6 khi nhận sự kiện `poi.deleted` (A4).
+  - `D2`: Tiến trình 3.5 chuyển tín hiệu hoàn tất xử lý ngôn ngữ và vector vào tiến trình 3.6.
+  - `D3`: Tiến trình 3.6 xóa vector theo `poi_id` (khi `poi.deleted`) trong kho Vector DB.
+  - `D4`: Tiến trình 3.6 xóa toàn bộ tệp audio của POI bị xóa trong kho File Storage.
+  - `D5`: Tiến trình 3.6 xóa toàn bộ FAQ Cache (Invalidate Cache) trong kho Chatbot Redis Cache.
+  - `D6`: Tiến trình 3.6 ghi nhận `event_id` hoàn tất vào `ProcessedEvents` và ghi cảnh báo lỗi (nếu có) trong kho `Outbox, Message Queue, ProcessedEvents & Alerts`.
+
 
 ### DFD Mức 2.4
 
 ![DFD Mức 2.4](diagrams/dfd_level_2_4.png)
 
+**Ý nghĩa từng dòng dữ liệu:**
+- **Tiến trình 4.1:** Tải danh sách ngôn ngữ hỗ trợ, đề xuất theo thiết bị và lưu mã ngôn ngữ vào `localStorage` (UC05)
+  - `D1`: Customer mở màn hình chọn/đổi ngôn ngữ và chọn ngôn ngữ trong tiến trình 4.1.
+  - `D2`: Kho `POIs, POILocalizations, Languages & Metadata` (POI DB) trả danh sách ngôn ngữ được hỗ trợ (API công khai) cho tiến trình 4.1.
+  - `D3`: Tiến trình 4.1 lưu danh sách ngôn ngữ và mã ngôn ngữ đã chọn (`lang`) vào kho Client Local Storage.
+  - `D4`: Tiến trình 4.1 kích hoạt tải/kiểm tra dữ liệu POI sang tiến trình 4.2 khi đã có `access_token`.
+- **Tiến trình 4.2:** Xác thực JWT, kiểm tra `lang` và so sánh `since_version` với `data_version`, trả `304` nếu trùng (UC02 bước 1-4, A1, A2, E3)
+  - `D1`: Tiến trình 4.1 kích hoạt tải/kiểm tra dữ liệu POI vào tiến trình 4.2.
+  - `D2`: Kho `POIs, POILocalizations, Languages & Metadata` (POI DB) trả kết quả kiểm tra `lang` hợp lệ và `data_version` hiện tại cho tiến trình 4.2.
+  - `D3`: Tiến trình 4.2 đọc `access_token`, `lang` và `since_version` đang lưu cục bộ trong kho Client Local Storage.
+  - `D4`: Tiến trình 4.2 trả `304 Not Modified` (A2) và chuyển sang tiến trình 4.4 để dùng ngay dữ liệu POI cục bộ.
+  - `D5`: Nếu khác phiên bản hoặc tải lần đầu, tiến trình 4.2 gửi yêu cầu đọc dữ liệu POI sang tiến trình 4.3.
+- **Tiến trình 4.3:** Truy vấn POI và bản địa hóa theo `lang`, xử lý ngôn ngữ dự phòng (`fallback=true`) và lưu IndexedDB (UC02 bước 5-7, A3, E1, E2)
+  - `D1`: Tiến trình 4.2 gửi yêu cầu đọc dữ liệu POI vào tiến trình 4.3.
+  - `D2`: Kho `POIs, POILocalizations, Languages & Metadata` (POI DB) trả POIs, bản dịch `Done` gần nhất hoặc văn bản ngôn ngữ dự phòng (`fallback=true`) cho tiến trình 4.3.
+  - `D3`: Tiến trình 4.3 lưu danh sách POI và `data_version` mới vào IndexedDB theo ngôn ngữ trong kho Client Local Storage.
+- **Tiến trình 4.4:** Đọc POI cục bộ, tải bản đồ nền, tính khoảng cách Haversine theo GPS và hiển thị Bản đồ/Chi tiết POI (UC12)
+  - `D1`: Tiến trình 4.2 trả `304 Not Modified` (A2) để tiến trình 4.4 dùng ngay dữ liệu POI cục bộ.
+  - `D2`: Customer cấp quyền vị trí GPS và chọn xem chi tiết POI trong tiến trình 4.4.
+  - `D3`: Tiến trình 4.4 đọc danh sách POI của ngôn ngữ đã chọn từ kho Client Local Storage.
+  - `D4`: Base Map Service trả bản đồ nền cho tiến trình 4.4 (nếu lỗi E2 thì chỉ hiển thị danh sách POI).
+  - `D5`: Tiến trình 4.4 hiển thị Bản đồ, Danh sách POI sắp xếp theo khoảng cách (Haversine) và Chi tiết POI cho Customer.
+  - `D6`: Customer nhấn nút Phát thuyết minh thủ công từ chi tiết POI (UC12 sang UC06-A1), tiến trình 4.4 chuyển yêu cầu sang tiến trình 4.6.
+- **Tiến trình 4.5:** Theo dõi GPS định kỳ, lọc POI trong `trigger_radius` chưa phát và xếp hạng phát theo khoảng cách (UC06 bước 1-4, A2, E1, E3)
+  - `D1`: Customer bật chế độ thuyết minh tự động và di chuyển thực tế (GPS) trong tiến trình 4.5.
+  - `D2`: Tiến trình 4.5 đọc tọa độ POI, `trigger_radius` và trạng thái đã phát trong lượt từ kho Client Local Storage.
+  - `D3`: Tiến trình 4.5 chuyển POI gần nhất đủ điều kiện phát (hoặc hàng đợi POI khi chồng lấn, A2) sang tiến trình 4.6.
+- **Tiến trình 4.6:** Tải/lấy đệm tệp Audio từ `audio_url`, phát thuyết minh (tự động/thủ công) và đánh dấu POI đã phát (UC06 bước 5-8, A1, A3, E2)
+  - `D1`: Tiến trình 4.5 chuyển POI gần nhất đủ điều kiện phát vào tiến trình 4.6.
+  - `D2`: Tiến trình 4.4 chuyển yêu cầu Phát thuyết minh thủ công (UC12 sang UC06-A1) vào tiến trình 4.6.
+  - `D3`: Kho File Storage trả tệp âm thanh từ `audio_url` và thumbnail từ `thumbnail_url` cho tiến trình 4.6.
+  - `D4`: Tiến trình 4.6 lưu đệm tệp audio và ghi nhận trạng thái POI đã phát vào kho Client Local Storage.
+  - `D5`: Tiến trình 4.6 phát âm thanh thuyết minh và hiển thị nội dung POI cho Customer.
+
 
 ### DFD Mức 2.5
 
 ![DFD Mức 2.5](diagrams/dfd_level_2_5.png)
+
+**Ý nghĩa từng dòng dữ liệu:**
+- **Tiến trình 5.1:** Xác thực JWT, chuẩn hóa câu hỏi (xóa khoảng trắng thừa, chữ thường) và tra cứu FAQ Cache theo `lang` (UC03 bước 1-3, A1, A2)
+  - `D1`: Customer gửi câu hỏi ngôn ngữ tự nhiên kèm `access_token` và `lang` vào tiến trình 5.1.
+  - `D2`: Tiến trình 5.1 tra cứu khóa (câu hỏi chuẩn hóa + `lang`) trong kho Chatbot Redis Cache (FAQ Cache); đồng thời xử lý trực tiếp các intent xã giao (chào hỏi/cảm ơn/tạm biệt) trước khi gọi RAG.
+  - `D3`: Tiến trình 5.1 trả kết quả ngay cho Customer nếu Cache Hit (A1) hoặc Greeting Intent, hoặc báo lỗi 401 nếu token hết hạn (A2).
+  - `D4`: Nếu Cache Miss, tiến trình 5.1 chuyển câu hỏi và `session_id` sang tiến trình 5.2.
+- **Tiến trình 5.2:** Kiểm tra giới hạn số câu hỏi phải gọi AI của phiên, Rate Limit theo `session_id` (UC03 bước 4, E4)
+  - `D1`: Tiến trình 5.1 chuyển câu hỏi chưa có trong cache (Cache Miss) kèm `session_id` vào tiến trình 5.2.
+  - `D2`: Tiến trình 5.2 kiểm tra và tăng bộ đếm số câu hỏi gọi AI của `session_id` trong kho Chatbot Redis Cache (Session Rate Limit).
+  - `D3`: Tiến trình 5.2 trả lỗi 429 (`RATE_LIMIT_EXCEEDED`) cho Customer nếu vượt giới hạn phiên (E4).
+  - `D4`: Nếu câu hỏi hợp lệ trong giới hạn phiên, tiến trình 5.2 chuyển sang tiến trình 5.3.
+- **Tiến trình 5.3:** Gọi Embedding Model chuyển câu hỏi thành vector và truy vấn Vector DB tìm đoạn văn bản liên quan (UC03 bước 5-6, E1)
+  - `D1`: Tiến trình 5.2 chuyển câu hỏi hợp lệ trong giới hạn phiên vào tiến trình 5.3.
+  - `D2`: Tiến trình 5.3 gửi câu hỏi sang AI API (Embedding Model `gemini-embedding-001`, 768 chiều) và nhận lại vector câu hỏi.
+  - `D3`: Tiến trình 5.3 truy vấn kho Vector DB (gồm mô tả POI và Kho tri thức chung `knowledge_base.py`) để tìm các đoạn văn bản có độ tương đồng cao nhất.
+  - `D4`: Tiến trình 5.3 chuyển danh sách đoạn văn bản ngữ cảnh và điểm Cosine Similarity sang tiến trình 5.4.
+- **Tiến trình 5.4:** Đánh giá độ tương đồng Cosine (mặc định tài liệu `>= 0.35`, cấu hình thực tế `0.55`) và xử lý câu hỏi ngoài phạm vi di tích (`OUT_OF_SCOPE`) (UC03 bước 6, E2)
+  - `D1`: Tiến trình 5.3 chuyển danh sách đoạn văn bản ngữ cảnh và điểm Cosine Similarity vào tiến trình 5.4.
+  - `D2`: Tiến trình 5.4 trả 200 OK (`OUT_OF_SCOPE`) kèm phản hồi mặc định cho Customer nếu Cosine dưới ngưỡng (E2).
+  - `D3`: Nếu ngữ cảnh đạt ngưỡng Cosine, tiến trình 5.4 chuyển ngữ cảnh hợp lệ sang tiến trình 5.5.
+- **Tiến trình 5.5:** Ghép Prompt (câu hỏi + ngữ cảnh + chỉ dẫn ngôn ngữ), gọi LLM sinh câu trả lời và lưu FAQ Cache (UC03 bước 7-9, E3)
+  - `D1`: Tiến trình 5.4 chuyển ngữ cảnh hợp lệ vào tiến trình 5.5.
+  - `D2`: Tiến trình 5.5 gửi Prompt (câu hỏi gốc + ngữ cảnh + chỉ dẫn ngôn ngữ) sang AI API (LLM `gemini-3.5-flash`) và nhận lại câu trả lời LLM.
+  - `D3`: Tiến trình 5.5 lưu cặp câu hỏi - câu trả lời mới vào kho Chatbot Redis Cache (FAQ Cache) kèm TTL và `lang`.
+  - `D4`: Tiến trình 5.5 hiển thị câu trả lời trên màn hình chat cho Customer (hoặc báo lỗi 503 nếu AI lỗi, E1/E3).

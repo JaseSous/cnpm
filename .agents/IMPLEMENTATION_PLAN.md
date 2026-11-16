@@ -15,16 +15,16 @@
 | Hạng mục | Quyết định | Ghi chú |
 |:---|:---|:---|
 | Backend framework | **Python FastAPI** | Tất cả 4 microservices + API Gateway |
-| ORM / DB Driver | **SQLAlchemy** + `aiosqlite` (dev) / `asyncpg` (prod nếu cần) | Theo PRD: SQLite / PostgreSQL |
+| ORM / DB Driver | **SQLAlchemy** + `asyncpg` (PostgreSQL trên Supabase qua IPv4 Pooler) / `aiosqlite` (dev/test) | Naive UTC datetime tương thích `asyncpg` |
 | Frontend framework | **React + Vite + TypeScript** | 2 SPA: customer-app, admin-dashboard |
-| gRPC | **grpcio** + **grpcio-tools** (protobuf) | Giao tiếp nội bộ giữa services |
+| gRPC / Internal HTTP | **grpcio** + **grpcio-tools** + `/api/internal/*` fallback | gRPC local + HTTP fallback trên Render Free Tier |
 | Message Broker | **RabbitMQ** qua `aio-pika` | CloudAMQP Free Tier khi deploy |
-| Redis client | **redis-py** (async) | Upstash Redis Free Tier khi deploy |
-| Vector DB | **Qdrant** qua `qdrant-client` | Qdrant Cloud Free Tier 1GB |
-| AI/Embedding | **Google Gemini API** (`text-embedding-004` + `gemini-2.5-flash`) | AI Studio Free Tier |
-| TTS | **edge-tts** (Python) | Miễn phí, hỗ trợ 15+ ngôn ngữ |
-| Translation | **deep-translator** hoặc **googletrans** | Miễn phí |
-| Object Storage | **Supabase Storage** | Public bucket `public-media` |
+| Redis client | **redis-py** (async) + In-memory fallback | Upstash Redis Free Tier khi deploy |
+| Vector DB | **Qdrant** qua `qdrant-client` (`:memory:` fallback) | Qdrant Cloud Free Tier 1GB (768 dims) |
+| AI/Embedding | **Google Gemini API** (`google-genai`: `gemini-embedding-001` + `gemini-3.5-flash` / `gemini-3.5-flash-lite`) | AI Studio Free Tier + Batch Translation |
+| TTS | **edge-tts** (Python) | Miễn phí, hỗ trợ 15 ngôn ngữ |
+| Translation | **Gemini Batch Translation** + **deep-translator** (`GoogleTranslator`, `MyMemoryTranslator`) | Tiết kiệm >90% quota AI Free Tier |
+| Object Storage | **Supabase Storage** (gọi REST API qua `httpx`) + `/media/` fallback | Public bucket `public-media` |
 | Cloud Deploy (Backend) | **Render** (Docker containers) | Free Tier |
 | Cloud Deploy (Frontend) | **Vercel** | Free Tier, HTTPS cho GPS/Camera |
 | CI/CD | **GitHub Actions** | Monorepo, matrix build |
@@ -628,19 +628,19 @@ Nhận message { event_id, poi_id, revision, original_title, original_descriptio
 ├─ 1. gRPC CheckProcessedEvent(event_id) → nếu đã xử lý → ACK + skip
 ├─ 2. Kiểm tra revision >= revision hiện tại (chống sai thứ tự)
 │
-├─ 3. Với mỗi language_code trong languages_to_process (trừ original_language_code):
-│   ├─ 3a. Gọi deep-translator dịch original_title → translated_title
-│   ├─ 3b. Gọi deep-translator dịch original_description → translated_description
+├─ 3. Batch Translation & TTS (15 ngôn ngữ):
+│   ├─ 3a. Gọi Gemini Batch Translation (`gemini-3.5-flash-lite`, xoay vòng `3.5-flash` / `3.8-flash`) dịch toàn bộ ngôn ngữ đích trong 1 request JSON
+│   ├─ 3b. Nếu thiếu bản dịch từ batch -> fallback GoogleTranslator / MyMemoryTranslator (`contact@linhungpagoda.vn`)
 │   ├─ 3c. Nếu tts_supported: Gọi edge-tts tạo file .mp3 từ translated_description
-│   ├─ 3d. Upload .mp3 → Supabase Storage audios/poi_{id}_{lang}_rev{rev}.mp3 → nhận audio_url
-│   ├─ 3e. gRPC UpdateLocalizationStatus(Done, translated_title, translated_description, audio_url, applied_revision)
-│   └─ 3f. Nếu lỗi bất kỳ bước nào → gRPC UpdateLocalizationStatus(Failed, error) + CreatePipelineAlert
+│   ├─ 3d. Upload .mp3 → Supabase Storage REST API (`audios/poi_{id}_{lang}_rev{rev}.mp3`) → nhận audio_url
+│   ├─ 3e. gRPC / HTTP fallback `UpdateLocalizationStatus(Done, translated_title, translated_description, audio_url, applied_revision)`
+│   └─ 3f. Nếu lỗi bất kỳ bước nào → gRPC / HTTP fallback `UpdateLocalizationStatus(Failed, error)` + `CreatePipelineAlert`
 │
 ├─ 4. Tạo embeddings từ original_description (tiếng gốc):
-│   ├─ 4a. Gọi Gemini text-embedding-004 → vector FLOAT[768]
-│   ├─ 4b. gRPC UpsertVectors(poi_id, revision, chunks[])
-│   ├─ 4c. gRPC UpdateVectorStatus(poi_id, "Synced")
-│   └─ 4d. Nếu lỗi → gRPC UpdateVectorStatus(poi_id, "Failed", error) + CreatePipelineAlert
+│   ├─ 4a. Gọi Gemini `gemini-embedding-001` (`output_dimensionality=768`) → vector FLOAT[768]
+│   ├─ 4b. gRPC / HTTP fallback `UpsertVectors(poi_id, revision, chunks[])`
+│   ├─ 4c. gRPC / HTTP fallback `UpdateVectorStatus(poi_id, "Synced")`
+│   └─ 4d. Nếu lỗi → gRPC / HTTP fallback `UpdateVectorStatus(poi_id, "Failed", error)` + `CreatePipelineAlert`
 │
 ├─ 5. gRPC MarkEventProcessed(event_id)
 └─ 6. ACK message
@@ -701,14 +701,15 @@ pydantic-settings>=2.0
 | Bước | Chi tiết |
 |:---|:---|
 | Input | `{ "question": "...", "lang": "vi" }` + Header `Authorization: Bearer <JWT customer>` |
+| 0 | (Pre-check) Xử lý trực tiếp intent xã giao (`greeting`, `thanks`, `farewell`) trước khi gọi RAG |
 | 1 | Chuẩn hóa câu hỏi: strip, lowercase, loại bỏ khoảng trắng thừa → tạo hash SHA256 |
 | 2 | Kiểm tra Redis DB 1 `GET faq:<lang>:<hash>` → nếu có → trả ngay (cache hit) |
 | 3 | Rate Limit: `INCR ratelimit:chat:<session_id>` → nếu vượt 30 → 429 `CHAT_RATE_LIMIT` |
-| 4 | Gọi Gemini `text-embedding-004` nhúng câu hỏi → vector 768 chiều |
-| 5 | Truy vấn Qdrant `poi_embeddings`: tìm top-5 nearest vectors, filter `score >= 0.35` |
+| 4 | Gọi Gemini `gemini-embedding-001` (`output_dimensionality=768`) nhúng câu hỏi → vector 768 chiều |
+| 5 | Truy vấn Qdrant `poi_embeddings` (gồm POI + `knowledge_base`): tìm top-5 nearest vectors, filter `score >= 0.55` |
 | 6 | Nếu không có kết quả → trả "Xin lỗi, tôi không tìm thấy thông tin liên quan" (theo ngôn ngữ `lang`) |
 | 7 | Ghép prompt: system instruction + ngữ cảnh tìm được (chunk_text) + câu hỏi gốc + chỉ dẫn trả lời bằng ngôn ngữ `lang` |
-| 8 | Gọi Gemini `gemini-2.5-flash` → nhận câu trả lời |
+| 8 | Gọi Gemini `gemini-3.5-flash` → nhận câu trả lời |
 | 9 | Lưu `SET faq:<lang>:<hash> <answer> EX 86400` (TTL 24h) vào Redis DB 1 |
 | 10 | Trả `{ "answer": "...", "sources": [...poi_ids liên quan] }` |
 
@@ -1006,10 +1007,15 @@ Pipeline dịch thất bại 1 ngôn ngữ → status Failed
 - Lazy loading audio, preload POI gần nhất.
 - Loading skeletons, error boundaries.
 
-### Task 7.4 — Hoàn thiện tài liệu
+### Task 7.4 — Hoàn thiện tài liệu & Cập nhật thực tế Production
 
 - `README.md` gốc: Tổng quan dự án, hướng dẫn cài đặt local (Docker Compose), hướng dẫn deploy, cấu trúc thư mục.
-- Cập nhật `.agents/` nếu có thay đổi kiến trúc trong quá trình thực hiện.
+- Cập nhật `.agents/` đồng bộ với thực tế đã triển khai (các Phase 0–7 đã hoàn tất):
+  - **Admin Dashboard**: Màn hình thống kê thời gian thực (`GET /api/auth/dashboard-stats`) + lưu lịch sử vé `localStorage` + trang quản lý POI & Pipeline Monitor.
+  - **PostgreSQL Supabase**: Hỗ trợ `normalize_async_db_url` (IPv4 pooler), `pool_pre_ping`/`pool_recycle`, và naive UTC datetime cho `asyncpg`.
+  - **Supabase Storage REST API**: Upload thumbnails & audio trực tiếp qua `httpx` (có fallback `/media/`).
+  - **Chatbot AI**: Bổ sung `knowledge_base.py`, greeting/thanks/farewell intent handling, `gemini-embedding-001` (768 dims) + `gemini-3.5-flash` (`SIMILARITY_SCORE_THRESHOLD = 0.55`).
+  - **Data Pipeline Worker**: Gemini Batch Translation (`gemini-3.5-flash-lite`), MyMemory email định danh, HTTP `/api/internal/*` fallback cho Render Free Tier, và `wake_up_pipeline_worker()` tự động đánh thức worker từ `poi-service`.
 
 ### Commit dự kiến Phase 7
 | # | Message | Tác giả |

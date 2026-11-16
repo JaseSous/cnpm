@@ -32,11 +32,11 @@ Chùa Linh Ứng (Bán đảo Sơn Trà, Đà Nẵng) là một trong những đ
    - Client App sử dụng Geolocation API của thiết bị để tính khoảng cách Haversine tới các POIs. Khi du khách bước vào bán kính kích hoạt (`trigger_radius`), Client tự động phát file âm thanh thuyết minh `.mp3`.
 4. **Hỏi đáp thông minh với Chatbot AI (RAG - Retrieval-Augmented Generation):**
    - Du khách có thể hỏi đáp thắc mắc bằng bất kỳ ngôn ngữ nào.
-   - Hệ thống áp dụng FAQ Cache trên Redis để trả lời tức thì các câu hỏi quen thuộc mà không tốn chi phí gọi LLM.
-   - Với câu hỏi mới: Chatbot nhúng vector, truy vấn Vector DB tìm ngữ cảnh chính xác của Chùa Linh Ứng (tránh tình trạng AI bịa đặt thông tin) và gửi prompt tới Google Gemini để tạo câu trả lời.
+   - Hệ thống xử lý trực tiếp các intent xã giao (chào hỏi, cảm ơn, tạm biệt) và áp dụng FAQ Cache trên Redis DB 1 để trả lời tức thì các câu hỏi quen thuộc mà không tốn chi phí gọi LLM.
+   - Với câu hỏi mới: Chatbot nhúng vector (`gemini-embedding-001`, 768 chiều), truy vấn Vector DB tìm ngữ cảnh từ mô tả POI và kho tri thức tổng quan về Chùa Linh Ứng (giờ mở cửa, giá vé miễn phí, trang phục, lịch sử...) rồi gửi prompt tới Google Gemini (`gemini-3.5-flash`) để tạo câu trả lời.
 5. **Đường ống xử lý dữ liệu ngầm (Data Pipeline Worker):**
-   - Khi Admin thêm hoặc chỉnh sửa POI, sự kiện được ghi vào Outbox và đẩy lên RabbitMQ.
-   - Worker chạy ngầm tự động dịch sang 15+ thứ tiếng và sinh giọng đọc TTS mà không làm gián đoạn trải nghiệm của người dùng.
+   - Khi Admin thêm hoặc chỉnh sửa POI, sự kiện được ghi vào Outbox và đẩy lên RabbitMQ, đồng thời gửi ping đánh thức Worker trên Render nếu đang ngủ đông.
+   - Worker chạy ngầm sử dụng Gemini Batch Translation (`gemini-3.5-flash-lite`, kèm fallback GoogleTranslator / MyMemoryTranslator) tự động dịch sang 15 ngôn ngữ trong 1 request và sinh giọng đọc `edge-tts` mà không làm gián đoạn trải nghiệm của người dùng.
 6. **Đường ống CI/CD tự động hóa:**
    - Toàn bộ luồng kiểm thử (Unit Tests), đóng gói Docker và triển khai đều được tự động hóa qua GitHub Actions.
 
@@ -50,12 +50,12 @@ Chùa Linh Ứng (Bán đảo Sơn Trà, Đà Nẵng) là một trong những đ
 | :---: | :--- | :--- | :--- | :--- |
 | **UC01** | Xác thực và Cấp quyền truy cập | Customer (Client App) | Authorization Service | Nhận `shorted_code` -> kiểm tra Redis -> xóa mã -> đổi lấy JWT |
 | **UC02** | Truy xuất dữ liệu điểm đến | Client App | Navigation & POI Service | Trả danh sách POI, tọa độ, bản dịch; hỗ trợ HTTP 304 Not Modified |
-| **UC03** | Hỏi đáp qua Chatbot AI | Customer | Chatbot AI Service | FAQ Cache (Redis DB 1), RAG Vector DB Qdrant, Gemini API |
-| **UC04** | Xử lý dữ liệu đa ngôn ngữ & Tạo audio | Hệ thống (Event) | Data Pipeline Service | RabbitMQ consumer, dịch 15+ thứ tiếng, Edge-TTS, Embeddings |
+| **UC03** | Hỏi đáp qua Chatbot AI | Customer | Chatbot AI Service | Greeting intent, FAQ Cache (Redis DB 1), RAG Qdrant (`knowledge_base` + POIs), Gemini API |
+| **UC04** | Xử lý dữ liệu đa ngôn ngữ & Tạo audio | Hệ thống (Event) | Data Pipeline Service | RabbitMQ consumer, Batch Translation (15 ngôn ngữ), Edge-TTS, Embeddings, HTTP internal fallback |
 | **UC05** | Chọn ngôn ngữ | Customer | Client App | Lưu ngôn ngữ ưu tiên vào Client Storage, reload POI theo ngôn ngữ |
 | **UC06** | Thuyết minh tự động theo vị trí | Customer | Client App (Engine) | GPS Geolocation, công thức Haversine, kích hoạt phát audio ngầm |
-| **UC07** | Đăng nhập Admin/Staff | Staff / Admin | Authorization Service | Đăng nhập tài khoản, băm mật khẩu, khóa tạm thời khi thử sai |
-| **UC08** | Tạo mã vé tiền mặt | Staff | Authorization Service | Tạo `shorted_code` 10 ký tự, lưu Redis TTL, hiển thị QR tại quầy |
+| **UC07** | Đăng nhập Admin/Staff | Staff / Admin | Authorization Service | Đăng nhập tài khoản, băm mật khẩu, khóa tạm thời, xem Dashboard thống kê (`/api/auth/dashboard-stats`) |
+| **UC08** | Tạo mã vé tiền mặt | Staff | Authorization Service | Tạo `shorted_code` 10 ký tự, lưu Redis TTL, hiển thị QR tại quầy & lưu lịch sử localStorage |
 | **UC09** | Quét mã QR để truy cập hệ thống | Customer | Client App (Camera) | Quét QR Staff cấp, tự động bóc tách `shorted_code` và kích hoạt UC01 |
 | **UC10** | Quản lý POI | Admin | Navigation & POI Service | CRUD điểm tham quan, upload thumbnail, lưu Outbox Events |
 | **UC11** | Theo dõi và xử lý lỗi pipeline | Admin | Navigation & POI Service | Xem trạng thái từng thứ tiếng/audio, trigger retry thủ công |

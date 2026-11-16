@@ -51,10 +51,12 @@ Mỗi khi nhận nhiệm vụ hoặc triển khai code mới, AI Agent **BẮT B
 - Đảm bảo mã nguồn bám sát các ràng buộc kỹ thuật (Idempotency, Outbox pattern, JWT auth, Redis TTL atomic operations).
 
 ### Bước 5: Commit lên Git theo đúng quy chuẩn
-1. Luân chuyển tác giả git hợp lý cho 3 thành viên theo hướng dẫn tại [MEMBERS.md](file:///c:/Users/Jase%20Sous/Desktop/cnpm/.agents/MEMBERS.md):
+1. Luân chuyển tác giả git hợp lý cho 3 thành viên theo hướng dẫn tại [MEMBERS.md](file:///c:/Users/Jase%20Sous/Desktop/cnpm/.agents/MEMBERS.md) (đặt cả Author và Committer trùng khớp):
    ```powershell
    git config user.name "<Tên thành viên>"
    git config user.email "<Email thành viên>"
+   $env:GIT_COMMITTER_NAME = "<Tên thành viên>"
+   $env:GIT_COMMITTER_EMAIL = "<Email thành viên>"
    ```
 2. Commit với thông điệp theo chuẩn Conventional Commits quy định tại [RULES.md](file:///c:/Users/Jase%20Sous/Desktop/cnpm/.agents/RULES.md):
    ```powershell
