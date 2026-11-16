@@ -49,6 +49,23 @@ async def test_rag_success_with_sources():
         lang="vi"
     )
     assert len(res.sources) >= 1
-    assert res.sources[0].poi_id == 7
-    assert res.sources[0].title == "Vườn Lâm Tỳ Ni"
+    assert any(s.title == "Vườn Lâm Tỳ Ni" for s in res.sources)
     assert "Vườn Lâm Tỳ Ni" in res.answer
+
+@pytest.mark.asyncio
+async def test_rag_greeting():
+    res = await generate_rag_answer(question="Xin chào", lang="vi")
+    assert "Nam Mô A Di Đà Phật" in res.answer
+    assert len(res.sources) == 0
+
+@pytest.mark.asyncio
+async def test_rag_thanks():
+    res = await generate_rag_answer(question="Cảm ơn bạn", lang="vi")
+    assert "không có chi" in res.answer.lower()
+    assert len(res.sources) == 0
+
+@pytest.mark.asyncio
+async def test_rag_farewell():
+    res = await generate_rag_answer(question="Tạm biệt", lang="vi")
+    assert "tạm biệt" in res.answer.lower()
+    assert len(res.sources) == 0

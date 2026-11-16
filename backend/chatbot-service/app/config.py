@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     QDRANT_URL: Optional[str] = "http://localhost:6333"
     QDRANT_API_KEY: Optional[str] = None
     QDRANT_COLLECTION: str = "poi_embeddings"
-    SIMILARITY_SCORE_THRESHOLD: float = 0.35
+    SIMILARITY_SCORE_THRESHOLD: float = 0.55
     TOP_K_VECTORS: int = 5
 
     # gRPC Internal Server

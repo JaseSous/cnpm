@@ -22,6 +22,11 @@ async def lifespan(app: FastAPI):
     await redis_service.connect()
     qdrant_service.ensure_collection_exists()
     try:
+        from app.services.knowledge_base import sync_knowledge_base_to_qdrant
+        await sync_knowledge_base_to_qdrant()
+    except Exception as e:
+        logger.warning(f"Lỗi khởi tạo kho tri thức cẩm nang: {e}")
+    try:
         await chatbot_grpc_server_manager.start()
     except Exception as e:
         logger.warning(f"Không thể khởi động gRPC Server nội bộ: {e}")
