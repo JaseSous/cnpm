@@ -1,6 +1,7 @@
 import os
 import logging
 from pathlib import Path
+import httpx
 from app.config import settings
 
 logger = logging.getLogger("pipeline-storage")
@@ -18,22 +19,31 @@ async def upload_audio_file(
     filename = f"poi_{poi_id}_{language_code}_rev{revision}.mp3"
     path_in_bucket = f"audios/{filename}"
 
-    # 1. Thử upload lên Supabase Storage
-    if settings.SUPABASE_URL and "your-project-id" not in settings.SUPABASE_URL:
+    # 1. Thử upload lên Supabase Storage qua REST API (nhẹ, nhanh và không lỗi SDK)
+    supabase_url = (settings.SUPABASE_URL or "").strip().rstrip("/")
+    supabase_key = (settings.SUPABASE_SERVICE_KEY or "").strip()
+    bucket = getattr(settings, "SUPABASE_BUCKET_NAME", "public-media")
+
+    if supabase_url and "supabase.co" in supabase_url and supabase_key and "your-" not in supabase_key:
         try:
-            from supabase import create_client
-            supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
             with open(file_path, "rb") as f:
                 content = f.read()
 
-            supabase.storage.from_(settings.SUPABASE_BUCKET_NAME).upload(
-                path=path_in_bucket,
-                file=content,
-                file_options={"content-type": "audio/mpeg", "upsert": "true"}
-            )
-            public_url = f"{settings.SUPABASE_URL}/storage/v1/object/public/{settings.SUPABASE_BUCKET_NAME}/{path_in_bucket}"
-            logger.info(f"Đã upload audio lên Supabase: {public_url}")
-            return public_url
+            upload_endpoint = f"{supabase_url}/storage/v1/object/{bucket}/{path_in_bucket}"
+            headers = {
+                "Authorization": f"Bearer {supabase_key}",
+                "apikey": supabase_key,
+                "Content-Type": "audio/mpeg",
+                "x-upsert": "true"
+            }
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(upload_endpoint, content=content, headers=headers)
+                if resp.status_code in (200, 201):
+                    public_url = f"{supabase_url}/storage/v1/object/public/{bucket}/{path_in_bucket}"
+                    logger.info(f"Đã upload audio lên Supabase: {public_url}")
+                    return public_url
+                else:
+                    logger.warning(f"Lỗi HTTP Supabase Storage ({resp.status_code}): {resp.text}")
         except Exception as e:
             logger.warning(f"Không thể upload lên Supabase Storage ({e}). Sử dụng local media fallback...")
 

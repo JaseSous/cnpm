@@ -11,6 +11,7 @@ from app.grpc_clients import poi_grpc_client, chatbot_grpc_client
 from app.consumers.guard import check_idempotency_and_revision
 from app.services import (
     translate_poi_content,
+    batch_translate_with_gemini,
     generate_speech_audio,
     upload_audio_file,
     embedding_service
@@ -72,11 +73,25 @@ async def process_poi_upserted(
         temp_audio_dir.mkdir(parents=True, exist_ok=True)
 
         # 2. Xử lý đa ngôn ngữ: Dịch thuật, TTS và Upload
+        # Tối ưu: Dịch hàng loạt toàn bộ ngôn ngữ đích bằng Gemini Batch trong 1 request duy nhất
+        batch_translations = {}
+        non_source_langs = [l for l in target_languages if l != primary_language]
+        if non_source_langs:
+            try:
+                batch_translations = await batch_translate_with_gemini(
+                    title=title,
+                    description=description,
+                    target_languages=non_source_langs,
+                    source_lang=primary_language
+                )
+            except Exception as b_err:
+                logger.warning(f"Không thể dịch Batch Gemini: {b_err}. Sẽ dịch từng ngôn ngữ.")
+
         for idx, lang in enumerate(target_languages):
             try:
-                # Giãn cách 0.5s giữa các ngôn ngữ để tránh chạm Rate-limit (5 req/s) của dịch vụ dịch thuật miễn phí
+                # Giãn cách nhẹ giữa các ngôn ngữ khi sinh audio
                 if idx > 0:
-                    await asyncio.sleep(0.5)
+                    await asyncio.sleep(0.3)
 
                 # Đánh dấu trạng thái đang dịch
                 await poi_grpc_client.update_localization_status(
@@ -87,15 +102,22 @@ async def process_poi_upserted(
                     event_id=event_id
                 )
 
-                # Dịch tiêu đề và mô tả
-                translated = await translate_poi_content(
-                    title=title,
-                    description=description,
-                    target_lang=lang,
-                    source_lang=primary_language
-                )
-                t_title = translated.get("title", title)
-                t_desc = translated.get("description", description)
+                # Lấy bản dịch từ batch nếu có, ngược lại dịch riêng lẻ với fallback
+                if lang == primary_language:
+                    t_title = title
+                    t_desc = description
+                elif lang in batch_translations and batch_translations[lang].get("title"):
+                    t_title = batch_translations[lang]["title"]
+                    t_desc = batch_translations[lang].get("description", description)
+                else:
+                    translated = await translate_poi_content(
+                        title=title,
+                        description=description,
+                        target_lang=lang,
+                        source_lang=primary_language
+                    )
+                    t_title = translated.get("title", title)
+                    t_desc = translated.get("description", description)
 
                 # Đánh dấu trạng thái đang sinh audio
                 await poi_grpc_client.update_localization_status(

@@ -1,5 +1,7 @@
+import os
 import json
 import uuid
+import asyncio
 from datetime import datetime
 from typing import List, Optional, Dict, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,6 +49,16 @@ async def get_current_data_version(db: AsyncSession) -> int:
     )
     meta = res.scalars().first()
     return meta.data_version if meta else 1
+
+async def wake_up_pipeline_worker():
+    """Gửi HTTP request đánh thức Worker trên Render nếu đang ngủ đông"""
+    worker_url = os.getenv("PIPELINE_WORKER_URL", "https://linh-ung-pipeline-worker.onrender.com").rstrip("/")
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            await client.get(f"{worker_url}/health")
+    except Exception:
+        pass
 
 async def create_poi(db: AsyncSession, request_data: CreatePOIRequest) -> POI:
     """
@@ -127,6 +139,10 @@ async def create_poi(db: AsyncSession, request_data: CreatePOIRequest) -> POI:
 
     await increment_data_version(db)
     await db.commit()
+    try:
+        asyncio.create_task(wake_up_pipeline_worker())
+    except Exception:
+        pass
 
     res_final = await db.execute(
         select(POI).options(selectinload(POI.localizations)).where(POI.poi_id == new_poi.poi_id)
@@ -221,6 +237,10 @@ async def update_poi(db: AsyncSession, poi_id: int, request_data: UpdatePOIReque
 
     await increment_data_version(db)
     await db.commit()
+    try:
+        asyncio.create_task(wake_up_pipeline_worker())
+    except Exception:
+        pass
 
     return poi
 
@@ -256,6 +276,10 @@ async def delete_poi(db: AsyncSession, poi_id: int) -> Dict[str, Any]:
     await db.delete(poi)
     await increment_data_version(db)
     await db.commit()
+    try:
+        asyncio.create_task(wake_up_pipeline_worker())
+    except Exception:
+        pass
 
     return {"success": True, "message": f"Đã xóa điểm tham quan {poi_id} thành công"}
 
@@ -461,6 +485,10 @@ async def retry_pipeline_for_poi(
     )
     db.add(outbox_event)
     await db.commit()
+    try:
+        asyncio.create_task(wake_up_pipeline_worker())
+    except Exception:
+        pass
 
     return {
         "success": True,

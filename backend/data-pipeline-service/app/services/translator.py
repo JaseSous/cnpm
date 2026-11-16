@@ -47,13 +47,69 @@ MYMEMORY_CODE_MAP = {
 
 # Khởi tạo Gemini Client nếu có API key hợp lệ
 _gemini_client = None
+CANDIDATE_GEMINI_MODELS = ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.8-flash"]
+
 if settings.GEMINI_API_KEY and settings.GEMINI_API_KEY not in ("your-gemini-api-key", "dummy", ""):
     try:
         from google import genai
         _gemini_client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        logger.info(f"Đã khởi tạo Gemini Client cho dịch thuật (Model: {getattr(settings, 'GEMINI_MODEL', 'gemini-3.5-flash')})")
+        logger.info(f"Đã khởi tạo Gemini Client cho dịch thuật (Ưu tiên: {CANDIDATE_GEMINI_MODELS[0]})")
     except Exception as e:
         logger.warning(f"Không thể khởi tạo Gemini Client cho dịch thuật: {e}")
+
+
+async def batch_translate_with_gemini(
+    title: str,
+    description: str,
+    target_languages: list,
+    source_lang: str = "vi"
+) -> Dict[str, Dict[str, str]]:
+    """
+    Dịch hàng loạt (Batch Translation) sang nhiều ngôn ngữ cùng lúc trong 1 request Gemini duy nhất.
+    Giúp tiết kiệm 15 lần quota và tránh chạm giới hạn Rate Limit.
+    """
+    if not _gemini_client or not target_languages:
+        return {}
+
+    prompt = (
+        f"You are a professional multilingual translator for Buddhist pagoda tourism in Vietnam.\n"
+        f"Translate the following pagoda attraction title and description from '{source_lang}' to ALL these target languages: {target_languages}.\n"
+        f"Maintain respectful, solemn Buddhist heritage terminology (e.g. Avalokiteshvara, Bodhisattva, Pagoda).\n"
+        f"Return ONLY a valid JSON object where keys are the target language codes and values are objects with 'title' and 'description':\n"
+        f"{{\n"
+        f"  \"ja\": {{\"title\": \"...\", \"description\": \"...\"}},\n"
+        f"  \"en\": {{\"title\": \"...\", \"description\": \"...\"}}\n"
+        f"}}\n\n"
+        f"Title: {title}\n"
+        f"Description: {description}"
+    )
+
+    for model in CANDIDATE_GEMINI_MODELS:
+        try:
+            from google.genai import types
+            config = types.GenerateContentConfig(response_mime_type="application/json")
+            response = await asyncio.wait_for(
+                _gemini_client.aio.models.generate_content(
+                    model=model,
+                    contents=prompt,
+                    config=config
+                ),
+                timeout=25.0
+            )
+            if response and response.text:
+                raw_text = response.text.strip()
+                if raw_text.startswith("```"):
+                    raw_text = re.sub(r"^```[a-zA-Z]*\n?", "", raw_text)
+                    raw_text = re.sub(r"\n?```$", "", raw_text).strip()
+
+                data = json.loads(raw_text)
+                if isinstance(data, dict) and len(data) > 0:
+                    logger.info(f"Gemini AI ({model}) dịch Batch thành công {len(data)}/{len(target_languages)} ngôn ngữ!")
+                    return data
+        except Exception as e:
+            logger.warning(f"Gemini AI ({model}) dịch Batch thất bại: {e}. Đang thử model tiếp theo...")
+
+    return {}
 
 
 async def translate_with_gemini(
@@ -62,43 +118,46 @@ async def translate_with_gemini(
     target_lang: str,
     source_lang: str = "vi"
 ) -> Optional[Dict[str, str]]:
-    """Dịch tiêu đề và mô tả bằng Gemini AI chuẩn bối cảnh văn hóa Phật giáo"""
+    """Dịch tiêu đề và mô tả bằng Gemini AI chuẩn bối cảnh văn hóa Phật giáo (có cơ chế xoay vòng model)"""
     if not _gemini_client:
         return None
 
-    try:
-        model = getattr(settings, "GEMINI_MODEL", "gemini-3.5-flash")
-        prompt = (
-            f"You are a professional multilingual translator for Buddhist pagoda tourism in Vietnam.\n"
-            f"Translate the following pagoda attraction title and description from '{source_lang}' to target language '{target_lang}'.\n"
-            f"Maintain respectful, solemn Buddhist heritage terminology (e.g. Avalokiteshvara, Bodhisattva, Pagoda).\n"
-            f"Return ONLY a valid JSON object with keys 'title' and 'description' without markdown formatting or code blocks:\n"
-            f"{{\"title\": \"...\", \"description\": \"...\"}}\n\n"
-            f"Title: {title}\n"
-            f"Description: {description}"
-        )
-        response = await asyncio.wait_for(
-            _gemini_client.aio.models.generate_content(
-                model=model,
-                contents=prompt
-            ),
-            timeout=15.0
-        )
-        if response and response.text:
-            raw_text = response.text.strip()
-            # Xóa markdown code fence nếu có
-            if raw_text.startswith("```"):
-                raw_text = re.sub(r"^```[a-zA-Z]*\n?", "", raw_text)
-                raw_text = re.sub(r"\n?```$", "", raw_text).strip()
+    prompt = (
+        f"You are a professional multilingual translator for Buddhist pagoda tourism in Vietnam.\n"
+        f"Translate the following pagoda attraction title and description from '{source_lang}' to target language '{target_lang}'.\n"
+        f"Maintain respectful, solemn Buddhist heritage terminology (e.g. Avalokiteshvara, Bodhisattva, Pagoda).\n"
+        f"Return ONLY a valid JSON object with keys 'title' and 'description':\n"
+        f"{{\"title\": \"...\", \"description\": \"...\"}}\n\n"
+        f"Title: {title}\n"
+        f"Description: {description}"
+    )
 
-            data = json.loads(raw_text)
-            t_title = str(data.get("title", "")).strip()
-            t_desc = str(data.get("description", "")).strip()
-            if t_title and t_desc:
-                logger.info(f"Gemini AI dịch thành công sang '{target_lang}': '{t_title[:30]}...'")
-                return {"title": t_title, "description": t_desc}
-    except Exception as e:
-        logger.warning(f"Gemini AI dịch thất bại sang '{target_lang}': {e}. Sẽ thử fallback.")
+    for model in CANDIDATE_GEMINI_MODELS:
+        try:
+            from google.genai import types
+            config = types.GenerateContentConfig(response_mime_type="application/json")
+            response = await asyncio.wait_for(
+                _gemini_client.aio.models.generate_content(
+                    model=model,
+                    contents=prompt,
+                    config=config
+                ),
+                timeout=15.0
+            )
+            if response and response.text:
+                raw_text = response.text.strip()
+                if raw_text.startswith("```"):
+                    raw_text = re.sub(r"^```[a-zA-Z]*\n?", "", raw_text)
+                    raw_text = re.sub(r"\n?```$", "", raw_text).strip()
+
+                data = json.loads(raw_text)
+                t_title = str(data.get("title", "")).strip()
+                t_desc = str(data.get("description", "")).strip()
+                if t_title and t_desc:
+                    logger.info(f"Gemini AI ({model}) dịch thành công sang '{target_lang}': '{t_title[:30]}...'")
+                    return {"title": t_title, "description": t_desc}
+        except Exception as e:
+            logger.warning(f"Gemini AI ({model}) dịch thất bại sang '{target_lang}': {e}. Đang thử model tiếp theo...")
 
     return None
 
@@ -111,7 +170,7 @@ async def translate_text(
     """
     Tự động dịch văn bản sang ngôn ngữ đích với cơ chế dự phòng đa tầng:
     1. GoogleTranslator (deep-translator)
-    2. MyMemoryTranslator (deep-translator)
+    2. MyMemoryTranslator (kèm email định danh mở khóa 10.000 từ/ngày)
     3. Fallback có định danh ngôn ngữ nếu mạng mất kết nối
     """
     if not text or not text.strip():
@@ -132,9 +191,9 @@ async def translate_text(
         if translated:
             return translated
     except Exception as e:
-        logger.warning(f"GoogleTranslator gặp sự cố hoặc timeout ({e}). Chuyển sang MyMemoryTranslator...")
+        logger.warning(f"GoogleTranslator gặp sự cố ({e}). Chuyển sang MyMemoryTranslator...")
 
-    # 2. Thử MyMemory Translator với timeout 5s
+    # 2. Thử MyMemory Translator với email định danh (10.000 từ/ngày)
     try:
         source_mm = MYMEMORY_CODE_MAP.get(source_lang, "vi-VN") if source_lang != "auto" else "vi-VN"
         target_mm = MYMEMORY_CODE_MAP.get(target_lang, f"{target_lang}-{target_lang.upper()}")
@@ -142,14 +201,18 @@ async def translate_text(
         translated = await asyncio.wait_for(
             loop.run_in_executor(
                 None,
-                lambda: MyMemoryTranslator(source=source_mm, target=target_mm).translate(text[:450])
+                lambda: MyMemoryTranslator(
+                    source=source_mm, 
+                    target=target_mm, 
+                    email="contact@linhungpagoda.vn"
+                ).translate(text[:450])
             ),
             timeout=5.0
         )
-        if translated:
+        if translated and not translated.startswith("MYMEMORY WARNING"):
             return translated
     except Exception as e:
-        logger.warning(f"MyMemoryTranslator gặp sự cố hoặc timeout ({e}). Sử dụng Fallback giả lập...")
+        logger.warning(f"MyMemoryTranslator gặp sự cố ({e}). Sử dụng Fallback...")
 
     # 3. Fallback an toàn (không để dừng luồng pipeline)
     return f"[{target_lang.upper()}] {text}"
