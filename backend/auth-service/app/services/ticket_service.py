@@ -2,7 +2,7 @@ import uuid
 import secrets
 import string
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -46,7 +46,7 @@ async def create_cash_ticket(
 
     # 2. Sinh session_id UUID
     session_id = str(uuid.uuid4())
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     staff_user_id = current_user_payload.get("user_id")
 
     # 3. Sinh mã vé shorted_code và kiểm tra trùng lặp trên Redis DB 0
@@ -143,7 +143,7 @@ async def verify_and_activate_ticket(
         )
 
     # 4. Cập nhật PaymentSessions trong cơ sở dữ liệu (Kèm cơ chế Rollback an toàn)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     expires_delta = timedelta(minutes=settings.JWT_CUSTOMER_EXPIRE_MINUTES)
     expires_at = now + expires_delta
 

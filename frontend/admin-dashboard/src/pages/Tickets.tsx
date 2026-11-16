@@ -161,9 +161,26 @@ export const Tickets: React.FC = () => {
     }
   };
 
+  // Cập nhật lại thời gian đếm ngược TTL mỗi 5 giây
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setTick((t) => t + 1), 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Phân tích mốc thời gian ISO chính xác, bù múi giờ UTC nếu chuỗi thiếu hậu tố 'Z'
+  const parseIsoDate = (dateStr: string) => {
+    if (!dateStr) return new Date();
+    const str = String(dateStr).trim();
+    if (str.includes('T') && !str.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(str)) {
+      return new Date(str + 'Z');
+    }
+    return new Date(str);
+  };
+
   // Tính toán thời gian TTL còn lại dựa trên created_at và expires_in (mặc định 1800s)
   const getTicketStatus = (ticket: GeneratedTicket) => {
-    const createdAt = new Date(ticket.created_at).getTime();
+    const createdAt = parseIsoDate(ticket.created_at).getTime();
     const expireSeconds = ticket.expires_in || 1800;
     const elapsedSeconds = Math.floor((Date.now() - createdAt) / 1000);
     const remainingSeconds = Math.max(0, expireSeconds - elapsedSeconds);
@@ -458,7 +475,7 @@ export const Tickets: React.FC = () => {
                       <td className="px-4 py-3">{item.package_name}</td>
                       <td className="px-4 py-3">{item.amount.toLocaleString('vi-VN')} đ</td>
                       <td className="px-4 py-3 text-xs text-slate-400">
-                        {new Date(item.created_at).toLocaleTimeString('vi-VN', {
+                        {parseIsoDate(item.created_at).toLocaleTimeString('vi-VN', {
                           hour: '2-digit',
                           minute: '2-digit',
                           second: '2-digit'
