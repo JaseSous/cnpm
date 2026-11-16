@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiClient } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
   Ticket, 
@@ -11,7 +12,8 @@ import {
   Clock, 
   DollarSign,
   Printer,
-  ExternalLink
+  ExternalLink,
+  Trash2
 } from 'lucide-react';
 
 interface TicketPackage {
@@ -32,6 +34,7 @@ interface GeneratedTicket {
 }
 
 export const Tickets: React.FC = () => {
+  const { user } = useAuth();
   const [packages, setPackages] = useState<TicketPackage[]>([]);
   const [selectedPackageId, setSelectedPackageId] = useState<number | ''>('');
   const [amount, setAmount] = useState<string>('50000');
@@ -40,7 +43,28 @@ export const Tickets: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [currentTicket, setCurrentTicket] = useState<GeneratedTicket | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [ticketHistory, setTicketHistory] = useState<GeneratedTicket[]>([]);
+
+  const getStorageKey = () => (user?.user_id ? `linh_ung_staff_tickets_${user.user_id}` : 'linh_ung_staff_tickets_default');
+
+  // Khôi phục lịch sử vé từ localStorage khi tải trang / đổi tài khoản
+  useEffect(() => {
+    try {
+      const key = getStorageKey();
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        const parsed: GeneratedTicket[] = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setTicketHistory(parsed);
+          // Tự động khôi phục vé gần nhất vào khung QR nếu chưa có vé đang xem
+          setCurrentTicket((prev) => prev || parsed[0]);
+        }
+      }
+    } catch (err) {
+      console.error('Không thể đọc lịch sử vé từ localStorage:', err);
+    }
+  }, [user?.user_id]);
 
   // Lấy danh mục gói vé từ server
   useEffect(() => {
@@ -90,7 +114,15 @@ export const Tickets: React.FC = () => {
       };
 
       setCurrentTicket(newTicket);
-      setTicketHistory((prev) => [newTicket, ...prev]);
+      setTicketHistory((prev) => {
+        const updated = [newTicket, ...prev.filter((t) => t.shorted_code !== newTicket.shorted_code)].slice(0, 50);
+        try {
+          localStorage.setItem(getStorageKey(), JSON.stringify(updated));
+        } catch (err) {
+          console.error('Không thể lưu lịch sử vé vào localStorage:', err);
+        }
+        return updated;
+      });
     } catch (err: any) {
       setError(err.response?.data?.detail?.message || 'Có lỗi xảy ra khi tạo vé.');
     } finally {
@@ -104,6 +136,44 @@ export const Tickets: React.FC = () => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
+  };
+
+  // Xem lại ảnh mã QR từ cùng shorted_code (không phát sinh mã mới - PRD UC08-E4)
+  const handleViewQR = (ticket: GeneratedTicket) => {
+    setCurrentTicket(ticket);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCopyItemCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(code);
+    setTimeout(() => setCopiedCode(null), 2000);
+  };
+
+  const handleClearHistory = () => {
+    if (window.confirm('Bạn có chắc chắn muốn xóa toàn bộ danh sách vé đã lưu trên máy này không?')) {
+      setTicketHistory([]);
+      try {
+        localStorage.removeItem(getStorageKey());
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
+
+  // Tính toán thời gian TTL còn lại dựa trên created_at và expires_in (mặc định 1800s)
+  const getTicketStatus = (ticket: GeneratedTicket) => {
+    const createdAt = new Date(ticket.created_at).getTime();
+    const expireSeconds = ticket.expires_in || 1800;
+    const elapsedSeconds = Math.floor((Date.now() - createdAt) / 1000);
+    const remainingSeconds = Math.max(0, expireSeconds - elapsedSeconds);
+    const isExpired = remainingSeconds <= 0;
+    const remainingMinutes = Math.ceil(remainingSeconds / 60);
+
+    return {
+      isExpired,
+      remainingMinutes,
+    };
   };
 
   // Xác định Base URL của Customer App linh hoạt cho cả Local/LAN và Production Cloud
@@ -246,10 +316,20 @@ export const Tickets: React.FC = () => {
         <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col items-center justify-center min-h-[460px]">
           {currentTicket ? (
             <div className="w-full flex flex-col items-center text-center space-y-6">
-              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-semibold border border-emerald-500/20">
-                <Clock className="w-3.5 h-3.5" />
-                <span>Hiệu lực trong {Math.round(currentTicket.expires_in / 60)} phút</span>
-              </div>
+              {(() => {
+                const status = getTicketStatus(currentTicket);
+                return status.isExpired ? (
+                  <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-red-500/10 text-red-400 text-xs font-semibold border border-red-500/20">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>Mã vé đã quá hạn TTL (30 phút)</span>
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-semibold border border-emerald-500/20">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>Hiệu lực còn khoảng {status.remainingMinutes} phút</span>
+                  </div>
+                );
+              })()}
 
               {/* QR Code Container */}
               <div className="p-4 bg-white rounded-2xl shadow-2xl border-4 border-amber-500/30">
@@ -278,6 +358,9 @@ export const Tickets: React.FC = () => {
                     {copied ? <Check className="w-5 h-5 text-emerald-400" /> : <Copy className="w-5 h-5" />}
                   </button>
                 </div>
+                <p className="text-xs text-slate-400 mt-2 font-medium">
+                  {currentTicket.package_name} • {Number(currentTicket.amount).toLocaleString('vi-VN')} đ
+                </p>
               </div>
 
               <div className="text-xs text-slate-400 max-w-md space-y-2">
@@ -324,7 +407,22 @@ export const Tickets: React.FC = () => {
       {/* Lịch sử phát hành vé trong phiên làm việc */}
       {ticketHistory.length > 0 && (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-          <h2 className="text-base font-semibold text-white mb-4">Các vé đã phát hành gần đây</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div>
+              <h2 className="text-base font-semibold text-white">Các vé đã phát hành gần đây</h2>
+              <p className="text-xs text-slate-400">
+                Lịch sử lưu trên trình duyệt máy này (F5/Reload không bị mất). Nhấn "Xem lại QR" để tạo lại ảnh mã QR từ cùng shorted_code (không phát sinh mã mới).
+              </p>
+            </div>
+            <button
+              onClick={handleClearHistory}
+              className="px-3 py-1.5 text-xs text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg border border-slate-800 hover:border-red-500/30 transition-colors flex items-center space-x-1.5 cursor-pointer self-start sm:self-auto"
+              title="Xóa danh sách lịch sử vé trên máy này"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Xóa lịch sử</span>
+            </button>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="text-xs uppercase bg-slate-800/50 text-slate-400">
@@ -333,25 +431,78 @@ export const Tickets: React.FC = () => {
                   <th className="px-4 py-3">Gói vé</th>
                   <th className="px-4 py-3">Số tiền</th>
                   <th className="px-4 py-3">Thời gian tạo</th>
-                  <th className="px-4 py-3 rounded-r-lg">Trạng thái Redis</th>
+                  <th className="px-4 py-3">Trạng thái TTL</th>
+                  <th className="px-4 py-3 rounded-r-lg text-right">Hành động</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800 text-slate-300">
-                {ticketHistory.map((item, index) => (
-                  <tr key={index} className="hover:bg-slate-800/30">
-                    <td className="px-4 py-3 font-mono font-bold text-amber-400">{item.shorted_code}</td>
-                    <td className="px-4 py-3">{item.package_name}</td>
-                    <td className="px-4 py-3">{item.amount.toLocaleString('vi-VN')} đ</td>
-                    <td className="px-4 py-3 text-xs text-slate-400">
-                      {new Date(item.created_at).toLocaleTimeString('vi-VN')}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/10 text-emerald-400">
-                        TTL 30m Active
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {ticketHistory.map((item, index) => {
+                  const { isExpired, remainingMinutes } = getTicketStatus(item);
+                  const isCurrent = currentTicket?.shorted_code === item.shorted_code;
+
+                  return (
+                    <tr 
+                      key={item.session_id || index} 
+                      className={`hover:bg-slate-800/40 transition-colors ${isCurrent ? 'bg-amber-500/10 border-l-2 border-amber-500' : ''}`}
+                    >
+                      <td className="px-4 py-3 font-mono font-bold text-amber-400">
+                        <div className="flex items-center space-x-2">
+                          <span>{item.shorted_code}</span>
+                          {isCurrent && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-sans font-medium">
+                              Đang xem
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">{item.package_name}</td>
+                      <td className="px-4 py-3">{item.amount.toLocaleString('vi-VN')} đ</td>
+                      <td className="px-4 py-3 text-xs text-slate-400">
+                        {new Date(item.created_at).toLocaleTimeString('vi-VN', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit'
+                        })}
+                      </td>
+                      <td className="px-4 py-3">
+                        {isExpired ? (
+                          <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+                            <Clock className="w-3 h-3 text-slate-500" />
+                            <span>Hết hạn TTL</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <Clock className="w-3 h-3 text-emerald-400 animate-pulse" />
+                            <span>Còn {remainingMinutes} phút</span>
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end space-x-2">
+                          <button
+                            onClick={() => handleViewQR(item)}
+                            className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 rounded-lg text-xs font-semibold flex items-center space-x-1 transition-colors cursor-pointer border border-amber-500/30"
+                            title="Tạo lại ảnh QR từ mã này để du khách quét"
+                          >
+                            <QrCode className="w-3.5 h-3.5" />
+                            <span>Xem lại QR</span>
+                          </button>
+                          <button
+                            onClick={() => handleCopyItemCode(item.shorted_code)}
+                            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs transition-colors cursor-pointer border border-slate-700"
+                            title="Sao chép mã"
+                          >
+                            {copiedCode === item.shorted_code ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
