@@ -37,7 +37,7 @@ services:
       - key: REDIS_URL
         sync: false
       - key: AUTH_DB_URL
-        value: sqlite+aiosqlite:///./data/auth_payment.db
+        sync: false
 
   # 3. Navigation & POI Service (UC02, UC10, UC11)
   - type: web
@@ -53,7 +53,7 @@ services:
       - key: JWT_SECRET_KEY
         value: change-this-to-a-super-secret-random-key-in-production
       - key: POI_DB_URL
-        value: sqlite+aiosqlite:///./data/poi.db
+        sync: false
       - key: AMQP_URL
         sync: false
       - key: REDIS_URL
