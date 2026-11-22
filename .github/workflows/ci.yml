@@ -11,6 +11,7 @@ jobs:
     name: Backend Test (${{ matrix.service }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         service:
           - auth-service
@@ -44,6 +45,7 @@ jobs:
     name: Frontend Build (${{ matrix.app }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         app:
           - customer-app
