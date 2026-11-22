@@ -52,7 +52,7 @@ async def get_current_data_version(db: AsyncSession) -> int:
 
 async def wake_up_pipeline_worker():
     """Gửi HTTP request đánh thức Worker trên Render nếu đang ngủ đông"""
-    worker_url = os.getenv("PIPELINE_WORKER_URL", "https://linh-ung-pipeline-worker.onrender.com").rstrip("/")
+    worker_url = os.getenv("PIPELINE_WORKER_URL", "https://linh-ung-pipeline-worker-ia3b.onrender.com").rstrip("/")
     try:
         import httpx
         async with httpx.AsyncClient(timeout=3.0) as client:

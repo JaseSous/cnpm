@@ -6,9 +6,9 @@ class Settings(BaseSettings):
     PORT: int = 8000
 
     # Downstream Microservices
-    AUTH_SERVICE_URL: str = "http://localhost:8001"
-    POI_SERVICE_URL: str = "http://localhost:8002"
-    CHATBOT_SERVICE_URL: str = "http://localhost:8003"
+    AUTH_SERVICE_URL: str = "https://linh-ung-auth-service-anuo.onrender.com"
+    POI_SERVICE_URL: str = "https://linh-ung-poi-service-tpli.onrender.com"
+    CHATBOT_SERVICE_URL: str = "https://linh-ung-chatbot-service-ie02.onrender.com"
 
     # JWT Authentication
     JWT_SECRET_KEY: str = "change-this-to-a-super-secret-random-key-in-production"

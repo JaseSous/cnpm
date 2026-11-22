@@ -149,17 +149,13 @@ async def reverse_proxy(request: Request, path: str):
         )
 
     # 3. Chuyển tiếp Request qua httpx
-    # Nếu downstream_base là hostname nội bộ Render (linh-ung-*.onrender.com hoặc linh-ung-*)
-    # Vì Render Free Tier không cho phép nhận traffic qua private network giữa các web service,
-    # Gateway sẽ chuyển tiếp trực tiếp qua domain công cộng HTTPS https://<service>.onrender.com.
-    if "linh-ung-auth-service" in downstream_base:
-        downstream_base = "https://linh-ung-auth-service.onrender.com"
-    elif "linh-ung-poi-service" in downstream_base:
-        downstream_base = "https://linh-ung-poi-service.onrender.com"
-    elif "linh-ung-chatbot-service" in downstream_base:
-        downstream_base = "https://linh-ung-chatbot-service.onrender.com"
-    elif not downstream_base.startswith("http://") and not downstream_base.startswith("https://"):
-        downstream_base = f"http://{downstream_base}"
+    # Đảm bảo downstream_base luôn có protocol http:// hoặc https:// và tôn trọng biến môi trường đã cấu hình
+    downstream_base = downstream_base.strip()
+    if not downstream_base.startswith("http://") and not downstream_base.startswith("https://"):
+        if ".onrender.com" in downstream_base:
+            downstream_base = f"https://{downstream_base}"
+        else:
+            downstream_base = f"http://{downstream_base}"
 
     target_url = f"{downstream_base.rstrip('/')}{full_path}"
     headers = dict(request.headers)

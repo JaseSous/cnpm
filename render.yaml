@@ -15,11 +15,11 @@ services:
       - key: REDIS_URL
         sync: false
       - key: AUTH_SERVICE_URL
-        value: https://linh-ung-auth-service.onrender.com
+        value: https://linh-ung-auth-service-anuo.onrender.com
       - key: POI_SERVICE_URL
-        value: https://linh-ung-poi-service.onrender.com
+        value: https://linh-ung-poi-service-tpli.onrender.com
       - key: CHATBOT_SERVICE_URL
-        value: https://linh-ung-chatbot-service.onrender.com
+        value: https://linh-ung-chatbot-service-ie02.onrender.com
 
   # 2. Authorization Service (UC01, UC07, UC08)
   - type: web
@@ -63,9 +63,9 @@ services:
       - key: SUPABASE_SERVICE_KEY
         value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhdXBmZ3lsenZhbnB4ZWVreXRtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5NDcwNjg0OSwiZXhwIjoyMTEwMjgyODQ5fQ.rZyB5jqazJVkmDM058f_JriSxKImxFj_TKZY0eoAUzI
       - key: POI_SERVICE_URL
-        value: https://linh-ung-poi-service.onrender.com
+        value: https://linh-ung-poi-service-tpli.onrender.com
       - key: CHATBOT_SERVICE_URL
-        value: https://linh-ung-chatbot-service.onrender.com
+        value: https://linh-ung-chatbot-service-ie02.onrender.com
 
   # 4. Chatbot AI Service (UC03, UC12)
   - type: web
@@ -109,6 +109,6 @@ services:
       - key: SUPABASE_SERVICE_KEY
         value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhdXBmZ3lsenZhbnB4ZWVreXRtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5NDcwNjg0OSwiZXhwIjoyMTEwMjgyODQ5fQ.rZyB5jqazJVkmDM058f_JriSxKImxFj_TKZY0eoAUzI
       - key: POI_SERVICE_URL
-        value: https://linh-ung-poi-service.onrender.com
+        value: https://linh-ung-poi-service-tpli.onrender.com
       - key: CHATBOT_SERVICE_URL
-        value: https://linh-ung-chatbot-service.onrender.com
+        value: https://linh-ung-chatbot-service-ie02.onrender.com
