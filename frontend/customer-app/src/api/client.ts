@@ -1,10 +1,18 @@
 import axios from 'axios';
 
-const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || 'https://linh-ung-gateway-px8p.onrender.com';
+const resolveGatewayUrl = (): string => {
+  const envUrl = import.meta.env.VITE_GATEWAY_URL;
+  if (!envUrl || envUrl.includes('linh-ung-gateway.onrender.com') || envUrl.includes('localhost')) {
+    return 'https://linh-ung-gateway-px8p.onrender.com';
+  }
+  return envUrl;
+};
 
-const AUTH_BASE_URL = GATEWAY_URL || import.meta.env.VITE_AUTH_API_URL || 'https://linh-ung-auth-service-anuo.onrender.com';
-const POI_BASE_URL = GATEWAY_URL || import.meta.env.VITE_POI_API_URL || 'https://linh-ung-poi-service-tpli.onrender.com';
-const CHATBOT_BASE_URL = GATEWAY_URL || import.meta.env.VITE_CHATBOT_API_URL || 'https://linh-ung-chatbot-service-ie02.onrender.com';
+const GATEWAY_URL = resolveGatewayUrl();
+
+const AUTH_BASE_URL = GATEWAY_URL || 'https://linh-ung-auth-service-anuo.onrender.com';
+const POI_BASE_URL = GATEWAY_URL || 'https://linh-ung-poi-service-tpli.onrender.com';
+const CHATBOT_BASE_URL = GATEWAY_URL || 'https://linh-ung-chatbot-service-ie02.onrender.com';
 
 export const authClient = axios.create({
   baseURL: AUTH_BASE_URL,
