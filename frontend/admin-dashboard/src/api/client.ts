@@ -1,9 +1,9 @@
 import axios from 'axios';
 
-const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL;
+const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || 'https://linh-ung-gateway-px8p.onrender.com';
 
-const AUTH_BASE_URL = GATEWAY_URL || import.meta.env.VITE_AUTH_API_URL || 'http://localhost:8001';
-const POI_BASE_URL = GATEWAY_URL || import.meta.env.VITE_POI_API_URL || 'http://localhost:8002';
+const AUTH_BASE_URL = GATEWAY_URL || import.meta.env.VITE_AUTH_API_URL || 'https://linh-ung-auth-service-anuo.onrender.com';
+const POI_BASE_URL = GATEWAY_URL || import.meta.env.VITE_POI_API_URL || 'https://linh-ung-poi-service-tpli.onrender.com';
 
 export const apiClient = axios.create({
   baseURL: AUTH_BASE_URL,
