@@ -39,3 +39,28 @@
 .glow-emerald {
   box-shadow: 0 0 20px -5px rgba(16, 185, 129, 0.3);
 }
+
+/* Leaflet Fix & Custom Styles for Admin */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  border-radius: 0.75rem;
+  font-family: inherit;
+}
+
+.leaflet-popup-content-wrapper {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  border: 1px solid #334155 !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+}
+
+.leaflet-popup-tip {
+  background: #0f172a !important;
+}
+
+.poi-marker-selected {
+  filter: drop-shadow(0 4px 6px rgba(245, 158, 11, 0.5));
+}
