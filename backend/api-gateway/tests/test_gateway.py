@@ -1,6 +1,7 @@
 import pytest
+import httpx
 from httpx import AsyncClient
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 
 @pytest.mark.asyncio
 async def test_health_check(client: AsyncClient):
@@ -62,11 +63,17 @@ async def test_ip_rate_limiting(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_reverse_proxy_downstream_connection_error(client: AsyncClient):
-    # Gọi tới public route /api/auth/login khi auth service chưa bật -> 503
-    resp = await client.post(
-        "/api/auth/login",
-        json={"username": "admin", "password": "123"},
-        headers={"x-forwarded-for": "192.168.1.200"}
-    )
-    assert resp.status_code == 503
-    assert resp.json()["detail"]["error_code"] == "SERVICE_UNAVAILABLE"
+    # Giả lập lỗi không thể kết nối tới auth service (downstream connection error) -> 503
+    mock_instance = AsyncMock()
+    mock_instance.request.side_effect = httpx.ConnectError("Connection refused")
+    mock_cm = MagicMock()
+    mock_cm.__aenter__.return_value = mock_instance
+
+    with patch("app.main.httpx.AsyncClient", return_value=mock_cm):
+        resp = await client.post(
+            "/api/auth/login",
+            json={"username": "admin", "password": "123"},
+            headers={"x-forwarded-for": "192.168.1.200"}
+        )
+        assert resp.status_code == 503
+        assert resp.json()["detail"]["error_code"] == "SERVICE_UNAVAILABLE"
