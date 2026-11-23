@@ -70,15 +70,20 @@ const activePoiIcon = L.divIcon({
   popupAnchor: [0, -20],
 });
 
-const createPoiBadgeIcon = (id: number, status: string, isCurrentEditing: boolean = false) => {
+const createPoiBadgeIcon = (id: number, status: string, isCurrentEditing: boolean = false, isNearest: boolean = false) => {
   let bgColor = '#3b82f6';
-  if (isCurrentEditing) {
+  if (isNearest) {
+    bgColor = '#eab308'; // Vàng nổi bật cho POI gần nhất
+  } else if (isCurrentEditing) {
     bgColor = '#f59e0b';
   } else if (status === 'Synced') {
     bgColor = '#10b981';
   } else if (status === 'Failed') {
     bgColor = '#ef4444';
   }
+
+  const borderStyle = isNearest ? '3px solid #fef08a' : '2px solid #ffffff';
+  const shadowStyle = isNearest ? '0 0 12px rgba(234, 179, 8, 0.8)' : '0 3px 8px rgba(0,0,0,0.45)';
 
   return L.divIcon({
     className: 'badge-poi-marker',
@@ -88,8 +93,8 @@ const createPoiBadgeIcon = (id: number, status: string, isCurrentEditing: boolea
         height: 28px;
         border-radius: 50%;
         background: ${bgColor};
-        border: 2px solid #ffffff;
-        box-shadow: 0 3px 8px rgba(0,0,0,0.45);
+        border: ${borderStyle};
+        box-shadow: ${shadowStyle};
         display: flex;
         align-items: center;
         justify-content: center;
@@ -311,6 +316,41 @@ export const POIManager: React.FC = () => {
   const validLat = Number.isFinite(formData.latitude) ? formData.latitude : 16.1001;
   const validLng = Number.isFinite(formData.longitude) ? formData.longitude : 108.2775;
   const validRadius = Number.isFinite(formData.trigger_radius) && formData.trigger_radius > 0 ? formData.trigger_radius : 30;
+
+  // Tính toán khoảng cách (Haversine) và tìm POI gần nhất so với vị trí đang chọn
+  const nearestPoi = useMemo<{ poi: POIItem; distance: number } | null>(() => {
+    const candidates = pois.filter((p) => p.poi_id !== editingPoi?.poi_id && Number.isFinite(p.latitude) && Number.isFinite(p.longitude));
+    if (candidates.length === 0) return null;
+
+    const toRad = (val: number) => (val * Math.PI) / 180;
+    const R = 6371e3; // mét
+    const phi1 = toRad(validLat);
+    const lambda1 = toRad(validLng);
+
+    let minDistance = Infinity;
+    let closestPoi: POIItem | null = null;
+
+    candidates.forEach((p) => {
+      const phi2 = toRad(p.latitude);
+      const lambda2 = toRad(p.longitude);
+      const deltaPhi = phi2 - phi1;
+      const deltaLambda = lambda2 - lambda1;
+
+      const a =
+        Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+        Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const d = R * c; // mét
+
+      if (d < minDistance) {
+        minDistance = d;
+        closestPoi = p;
+      }
+    });
+
+    if (!closestPoi) return null;
+    return { poi: closestPoi, distance: Math.round(minDistance) };
+  }, [pois, editingPoi, validLat, validLng]);
 
   return (
     <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-8">
@@ -778,35 +818,48 @@ export const POIManager: React.FC = () => {
                         }}
                       />
 
-                      {/* Các POI khác để đối chiếu vị trí (màu xanh/mờ) */}
+                      {/* Các POI khác để đối chiếu vị trí (màu xanh/mờ, POI gần nhất màu vàng) */}
                       {pois
                         .filter((p) => p.poi_id !== editingPoi?.poi_id)
-                        .map((otherPoi) => (
-                          <React.Fragment key={otherPoi.poi_id}>
-                            <Circle
-                              center={[otherPoi.latitude ?? 16.1001, otherPoi.longitude ?? 108.2775]}
-                              radius={otherPoi.trigger_radius ?? 30}
-                              pathOptions={{
-                                color: '#64748b',
-                                fillColor: '#64748b',
-                                fillOpacity: 0.1,
-                                weight: 1,
-                                dashArray: '3, 4',
-                              }}
-                            />
-                            <Marker
-                              position={[otherPoi.latitude ?? 16.1001, otherPoi.longitude ?? 108.2775]}
-                              icon={createPoiBadgeIcon(otherPoi.poi_id, 'other')}
-                            >
-                              <Popup>
-                                <div className="text-xs p-1">
-                                  <div className="font-bold text-white">#{otherPoi.poi_id} - {otherPoi.original_title}</div>
-                                  <div className="text-slate-400 text-[10px]">Bán kính: {otherPoi.trigger_radius ?? 30}m</div>
-                                </div>
-                              </Popup>
-                            </Marker>
-                          </React.Fragment>
-                        ))}
+                        .map((otherPoi) => {
+                          const isNearest = nearestPoi?.poi?.poi_id === otherPoi.poi_id;
+                          return (
+                            <React.Fragment key={otherPoi.poi_id}>
+                              <Circle
+                                center={[otherPoi.latitude ?? 16.1001, otherPoi.longitude ?? 108.2775]}
+                                radius={otherPoi.trigger_radius ?? 30}
+                                pathOptions={{
+                                  color: isNearest ? '#eab308' : '#64748b',
+                                  fillColor: isNearest ? '#eab308' : '#64748b',
+                                  fillOpacity: isNearest ? 0.28 : 0.1,
+                                  weight: isNearest ? 2.5 : 1,
+                                  dashArray: isNearest ? undefined : '3, 4',
+                                }}
+                              />
+                              <Marker
+                                position={[otherPoi.latitude ?? 16.1001, otherPoi.longitude ?? 108.2775]}
+                                icon={createPoiBadgeIcon(otherPoi.poi_id, 'other', false, isNearest)}
+                              >
+                                <Popup>
+                                  <div className="text-xs p-1">
+                                    <div className="font-bold text-white flex items-center gap-1.5">
+                                      {isNearest && <span className="text-amber-400">★ POI gần nhất:</span>}
+                                      <span>#{otherPoi.poi_id} - {otherPoi.original_title}</span>
+                                    </div>
+                                    <div className="text-slate-400 text-[10px]">
+                                      Bán kính: {otherPoi.trigger_radius ?? 30}m
+                                      {isNearest && nearestPoi && (
+                                        <span className="text-amber-300 font-semibold block mt-0.5">
+                                          Khoảng cách: ~{nearestPoi.distance}m
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </Popup>
+                              </Marker>
+                            </React.Fragment>
+                          );
+                        })}
 
                       {/* Vòng tròn bán kính của POI đang chỉnh sửa */}
                       <Circle
@@ -845,9 +898,14 @@ export const POIManager: React.FC = () => {
                     </MapContainer>
 
                     {/* Hint overlay trên bản đồ */}
-                    <div className="absolute bottom-2 left-2 right-2 pointer-events-none z-[1000] flex justify-between items-center">
-                      <div className="bg-slate-900/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-slate-700/80 text-[11px] text-amber-300 shadow">
-                        💡 Click bản đồ hoặc kéo marker 📍 để chọn tọa độ
+                    <div className="absolute bottom-2 left-2 right-2 pointer-events-none z-[1000] flex flex-wrap justify-between items-center gap-1.5">
+                      <div className="bg-slate-900/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-slate-700/80 text-[11px] text-amber-300 shadow flex items-center gap-1.5">
+                        <span>💡 Click bản đồ hoặc kéo marker 📍</span>
+                        {nearestPoi && (
+                          <span className="text-yellow-400 font-semibold border-l border-slate-700 pl-1.5">
+                            🟡 Gần nhất: #{nearestPoi.poi.poi_id} (~{nearestPoi.distance}m)
+                          </span>
+                        )}
                       </div>
                       <div className="bg-slate-900/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-slate-700/80 text-[11px] font-mono text-slate-300 shadow">
                         R = {validRadius}m
