@@ -90,3 +90,13 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Tự động migrate thêm cột password_changed_at nếu bảng Users đã tồn tại từ trước mà chưa có cột này
+        try:
+            await conn.execute(
+                __import__("sqlalchemy").text(
+                    "ALTER TABLE Users ADD COLUMN password_changed_at DATETIME DEFAULT CURRENT_TIMESTAMP"
+                )
+            )
+        except Exception:
+            # Cột đã tồn tại hoặc bảng mới tạo
+            pass

@@ -20,8 +20,11 @@ export const Login: React.FC = () => {
       await login(username, password);
       navigate('/tickets');
     } catch (err: any) {
-      if (err.response?.data?.detail?.message) {
-        setError(err.response.data.detail.message);
+      const detail = err.response?.data?.detail;
+      if (typeof detail === 'string') {
+        setError(detail);
+      } else if (detail?.message) {
+        setError(detail.message);
       } else if (err.response?.status === 429) {
         setError('Quá nhiều yêu cầu từ địa chỉ IP của bạn (Rate Limit). Vui lòng đợi trong giây lát.');
       } else if (err.response?.status === 423) {
