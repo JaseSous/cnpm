@@ -6,6 +6,7 @@ from app.database import get_db
 from app.models import User, TicketPackage
 from app.schemas.auth import (
     LoginRequest,
+    ChangePasswordRequest,
     TokenResponse,
     UserResponse,
     VerifyCodeRequest,
@@ -13,7 +14,7 @@ from app.schemas.auth import (
 )
 from app.schemas.ticket import CreateTicketRequest, TicketResponse, TicketPackageResponse
 from app.schemas.dashboard import DashboardStatsResponse
-from app.services.auth_service import login_user
+from app.services.auth_service import login_user, change_password
 from app.services.ticket_service import create_cash_ticket, verify_and_activate_ticket
 from app.services.dashboard_service import get_dashboard_stats
 from app.services.security import get_current_user_payload, require_roles
@@ -55,8 +56,23 @@ async def get_current_user(
         "username": user.username,
         "role": user.role,
         "is_active": user.is_active,
-        "created_at": user.created_at
+        "created_at": user.created_at,
+        "password_changed_at": user.password_changed_at
     }
+
+@router.post(
+    "/change-password",
+    summary="Đổi mật khẩu tài khoản",
+    description="Cho phép Admin hoặc Staff đổi mật khẩu của chính mình để tránh bị khóa tài khoản."
+)
+async def update_password(
+    body: ChangePasswordRequest,
+    payload: dict = Depends(get_current_user_payload),
+    db: AsyncSession = Depends(get_db)
+):
+    user_id = payload.get("user_id")
+    role = payload.get("role")
+    return await change_password(db, user_id, role, body.old_password, body.new_password)
 
 @router.get(
     "/packages",

@@ -6,6 +6,10 @@ class LoginRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50, description="Tên đăng nhập Staff hoặc Admin")
     password: str = Field(..., min_length=4, max_length=100, description="Mật khẩu")
 
+class ChangePasswordRequest(BaseModel):
+    old_password: str = Field(..., min_length=4, max_length=100, description="Mật khẩu hiện tại")
+    new_password: str = Field(..., min_length=6, max_length=100, description="Mật khẩu mới")
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

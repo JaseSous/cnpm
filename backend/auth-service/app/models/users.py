@@ -14,3 +14,4 @@ class User(Base):
     role = Column(String(20), nullable=False)  # 'admin' hoặc 'staff'
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    password_changed_at = Column(DateTime, default=datetime.utcnow, nullable=False)

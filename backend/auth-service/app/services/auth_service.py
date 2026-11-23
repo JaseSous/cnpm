@@ -6,7 +6,30 @@ from fastapi import HTTPException, status
 from app.config import settings
 from app.models import User, LoginAttempt
 from app.schemas.auth import LoginRequest, TokenResponse
-from app.services.security import verify_password, create_access_token
+from app.services.security import verify_password, create_access_token, hash_password
+
+async def change_password(db: AsyncSession, user_id: int, current_user_role: str, old_password: str, new_password: str):
+    """
+    Đổi mật khẩu tài khoản và cập nhật password_changed_at
+    """
+    res = await db.execute(select(User).where(User.user_id == user_id))
+    user = res.scalars().first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error_code": "USER_NOT_FOUND", "message": "Không tìm thấy người dùng"}
+        )
+    
+    if not verify_password(old_password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error_code": "INVALID_PASSWORD", "message": "Mật khẩu hiện tại không chính xác"}
+        )
+        
+    user.password_hash = hash_password(new_password)
+    user.password_changed_at = datetime.utcnow()
+    await db.commit()
+    return {"message": "Đổi mật khẩu thành công"}
 
 async def login_user(db: AsyncSession, login_data: LoginRequest) -> TokenResponse:
     """
@@ -45,6 +68,21 @@ async def login_user(db: AsyncSession, login_data: LoginRequest) -> TokenRespons
     is_valid_password = False
     if user:
         is_valid_password = verify_password(login_data.password, user.password_hash)
+
+        # Kiểm tra quy tắc đối với tài khoản admin:
+        # Nếu không đổi mật khẩu trong vòng 1 ngày (24 giờ), tài khoản admin sẽ bị khóa (is_active = False)
+        if user.role == "admin":
+            last_changed = user.password_changed_at or user.created_at
+            if last_changed and (now - last_changed) > timedelta(days=1):
+                user.is_active = False
+                await db.commit()
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail={
+                        "error_code": "ADMIN_PASSWORD_EXPIRED",
+                        "message": "Tài khoản admin đã bị khóa do không đổi mật khẩu trong vòng 1 ngày. Vui lòng liên hệ quản trị hệ thống."
+                    }
+                )
 
     # 4. Xử lý khi đăng nhập thất bại
     if not user or not is_valid_password:

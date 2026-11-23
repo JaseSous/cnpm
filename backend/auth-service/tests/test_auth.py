@@ -114,3 +114,62 @@ async def test_get_dashboard_stats_unauthorized(client: AsyncClient):
     """Gọi /api/auth/dashboard-stats không có token trả về 401"""
     res = await client.get("/api/auth/dashboard-stats")
     assert res.status_code == 401
+
+@pytest.mark.asyncio
+async def test_admin_lockout_after_one_day_without_password_change(client: AsyncClient):
+    """Tài khoản admin quá 1 ngày không đổi mật khẩu sẽ bị khóa (403 Forbidden)"""
+    from datetime import datetime, timedelta
+    from app.models import User
+    from sqlalchemy import select
+    from tests.conftest import TestAsyncSessionLocal
+
+    # Sửa password_changed_at của admin thành 2 ngày trước
+    async with TestAsyncSessionLocal() as session:
+        res = await session.execute(select(User).where(User.username == "admin"))
+        admin = res.scalars().first()
+        admin.password_changed_at = datetime.utcnow() - timedelta(days=2)
+        await session.commit()
+
+    # Thử đăng nhập lại
+    login_res = await client.post("/api/auth/login", json={
+        "username": "admin",
+        "password": "admin123"
+    })
+    assert login_res.status_code == 403
+    detail = login_res.json()["detail"]
+    assert detail["error_code"] == "ADMIN_PASSWORD_EXPIRED"
+
+    # Kiểm tra database xem is_active đã chuyển sang False chưa
+    async with TestAsyncSessionLocal() as session:
+        res = await session.execute(select(User).where(User.username == "admin"))
+        admin = res.scalars().first()
+        assert admin.is_active is False
+
+@pytest.mark.asyncio
+async def test_change_password_success(client: AsyncClient):
+    """Admin có thể đổi mật khẩu và password_changed_at được làm mới"""
+    # 1. Đăng nhập
+    login_res = await client.post("/api/auth/login", json={
+        "username": "admin",
+        "password": "admin123"
+    })
+    assert login_res.status_code == 200
+    token = login_res.json()["access_token"]
+
+    # 2. Đổi mật khẩu
+    change_res = await client.post(
+        "/api/auth/change-password",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "old_password": "admin123",
+            "new_password": "newadminpassword123"
+        }
+    )
+    assert change_res.status_code == 200
+
+    # 3. Đăng nhập lại bằng mật khẩu mới
+    new_login_res = await client.post("/api/auth/login", json={
+        "username": "admin",
+        "password": "newadminpassword123"
+    })
+    assert new_login_res.status_code == 200
