@@ -23,9 +23,30 @@ function SessionExpirationWatcher() {
         return;
       }
 
-      const expiresAt = localStorage.getItem('customer_expires_at');
-      if (expiresAt) {
-        const expireTime = new Date(expiresAt).getTime();
+      // Ưu tiên đọc trường exp trực tiếp từ JWT payload (tính theo giây UTC chuẩn tuyệt đối)
+      let expireTime: number | null = null;
+      try {
+        const parts = token.split('.');
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+          if (payload && typeof payload.exp === 'number') {
+            expireTime = payload.exp * 1000;
+          }
+        }
+      } catch {
+        // Fallback sang customer_expires_at nếu decode token thất bại
+      }
+
+      if (!expireTime) {
+        const expiresAt = localStorage.getItem('customer_expires_at');
+        if (expiresAt) {
+          // Chuẩn hóa định dạng UTC ISO string (nếu thiếu Z thì thêm Z để tránh JS parse thành giờ địa phương)
+          const normalized = expiresAt.endsWith('Z') || expiresAt.includes('+') ? expiresAt : `${expiresAt}Z`;
+          expireTime = new Date(normalized).getTime();
+        }
+      }
+
+      if (expireTime && !isNaN(expireTime)) {
         if (Date.now() >= expireTime) {
           localStorage.removeItem('customer_token');
           localStorage.removeItem('customer_expires_at');
