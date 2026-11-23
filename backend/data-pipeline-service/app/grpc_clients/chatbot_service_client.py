@@ -19,7 +19,7 @@ logger = logging.getLogger("chatbot-grpc-client")
 class ChatbotServiceClient:
     def __init__(self, target: Optional[str] = None):
         self.target = target or settings.CHATBOT_GRPC_TARGET
-        self.http_base_url = os.getenv("CHATBOT_SERVICE_URL") or "https://linh-ung-chatbot-service.onrender.com"
+        self.http_base_url = os.getenv("CHATBOT_SERVICE_URL") or "https://linh-ung-chatbot-service-ie02.onrender.com"
         if not self.http_base_url.startswith("http"):
             self.http_base_url = f"https://{self.http_base_url}"
 

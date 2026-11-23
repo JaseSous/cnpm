@@ -19,7 +19,7 @@ logger = logging.getLogger("poi-grpc-client")
 class POIServiceClient:
     def __init__(self, target: Optional[str] = None):
         self.target = target or settings.POI_GRPC_TARGET
-        self.http_base_url = os.getenv("POI_SERVICE_URL") or "https://linh-ung-poi-service.onrender.com"
+        self.http_base_url = os.getenv("POI_SERVICE_URL") or "https://linh-ung-poi-service-tpli.onrender.com"
         if not self.http_base_url.startswith("http"):
             self.http_base_url = f"https://{self.http_base_url}"
 

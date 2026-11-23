@@ -33,15 +33,16 @@ async def test_translate_poi_content_same_language():
 
 @pytest.mark.asyncio
 async def test_translate_poi_content_different_language():
-    with patch("app.services.translator.translate_text", side_effect=lambda text, target_lang, source_lang: f"{text} in {target_lang}"):
-        res = await translate_poi_content(
-            title="Tượng Phật Bà",
-            description="Tượng Phật Quan Âm cao 67m",
-            target_lang="en",
-            source_lang="vi"
-        )
-        assert res["title"] == "Tượng Phật Bà in en"
-        assert res["description"] == "Tượng Phật Quan Âm cao 67m in en"
+    with patch("app.services.translator.translate_with_gemini", return_value=None):
+        with patch("app.services.translator.translate_text", side_effect=lambda text, target_lang, source_lang: f"{text} in {target_lang}"):
+            res = await translate_poi_content(
+                title="Tượng Phật Bà",
+                description="Tượng Phật Quan Âm cao 67m",
+                target_lang="en",
+                source_lang="vi"
+            )
+            assert res["title"] == "Tượng Phật Bà in en"
+            assert res["description"] == "Tượng Phật Quan Âm cao 67m in en"
 
 @pytest.mark.asyncio
 async def test_translate_poi_content_gemini_success():

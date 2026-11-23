@@ -26,13 +26,14 @@ async def test_upload_audio_file_local_fallback(tmp_path):
     source_file.write_bytes(b"dummy mp3 data")
 
     # Upload không có supabase url -> local fallback
-    url = await upload_audio_file(
-        file_path=source_file,
-        poi_id=99,
-        language_code="en",
-        revision=1
-    )
-    assert url.startswith("/media/audios/poi_99_en_rev1.mp3")
+    with patch("app.services.storage.settings.SUPABASE_URL", ""):
+        url = await upload_audio_file(
+            file_path=source_file,
+            poi_id=99,
+            language_code="en",
+            revision=1
+        )
+        assert url.startswith("/media/audios/poi_99_en_rev1.mp3")
 
 @pytest.mark.asyncio
 async def test_delete_audio_files_for_poi(tmp_path):
