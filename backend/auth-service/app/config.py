@@ -5,7 +5,8 @@ class Settings(BaseSettings):
     # Cấu hình JWT
     JWT_SECRET_KEY: str = "change-this-to-a-super-secret-random-key-in-production"
     JWT_ALGORITHM: str = "HS256"
-    JWT_CUSTOMER_EXPIRE_MINUTES: int = 480  # 8 tiếng cho du khách
+    JWT_CUSTOMER_EXPIRE_MINUTES: int = 1  # 1 phút cho du khách trải nghiệm thử
+    JWT_CUSTOMER_EXPIRE_SECONDS: int = 60  # 60 giây
     JWT_ADMIN_EXPIRE_MINUTES: int = 60      # 1 tiếng cho Staff/Admin
 
     # Cơ sở dữ liệu Auth & Payment DB

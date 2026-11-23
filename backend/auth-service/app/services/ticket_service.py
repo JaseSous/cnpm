@@ -144,7 +144,7 @@ async def verify_and_activate_ticket(
 
     # 4. Cập nhật PaymentSessions trong cơ sở dữ liệu (Kèm cơ chế Rollback an toàn)
     now = datetime.now(timezone.utc).replace(tzinfo=None)
-    expires_delta = timedelta(minutes=settings.JWT_CUSTOMER_EXPIRE_MINUTES)
+    expires_delta = timedelta(seconds=getattr(settings, "JWT_CUSTOMER_EXPIRE_SECONDS", 60))
     expires_at = now + expires_delta
 
     try:
